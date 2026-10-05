@@ -46,8 +46,8 @@ app.use("/auth", authRoutes);
 // ── API routes (auth + email check required) ──
 app.use("/api/jobs", requireAuth, requireAllowedEmail, jobsRoutes);
 
-// ── Serve built frontend (production) ──
-const frontendDist = path.join(__dirname, "..", "..", "frontend", "dist");
+// ── Serve built frontend ──
+const frontendDist = process.env.FRONTEND_DIST || path.join(__dirname, "..", "..", "frontend", "dist");
 app.use(express.static(frontendDist));
 
 // ── SPA fallback: serve index.html for non-API routes ──
