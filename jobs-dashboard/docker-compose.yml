@@ -1,0 +1,25 @@
+services:
+  jobs-dashboard:
+    build: .
+    container_name: jobs-dashboard
+    restart: unless-stopped
+    ports:
+      - "9120:9120"
+    environment:
+      - NODE_ENV=production
+      - PORT=9120
+      - DB_PATH=/data/job_openings.db
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - SESSION_SECRET=${SESSION_SECRET}
+      - ALLOWED_EMAIL=${ALLOWED_EMAIL:-ashvin.kasture12345@gmail.com}
+      - PUBLIC_URL=https://hermes.ashtech.dev/jobs
+      - FRONTEND_DIST=/app/frontend/dist
+    volumes:
+      - /home/ashvin/hermes/job_openings.db:/data/job_openings.db:ro
+    networks:
+      - jobs-net
+
+networks:
+  jobs-net:
+    driver: bridge

@@ -1,0 +1,9 @@
+hermes.ashtech.dev {
+	# Job Openings Dashboard (strips /jobs prefix before proxying)
+	handle_path /jobs/* {
+		reverse_proxy localhost:9120
+	}
+
+	# Hermes dashboard
+	reverse_proxy localhost:9119
+}
