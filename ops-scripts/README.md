@@ -13,4 +13,7 @@ Operational scripts requiring **sudo** privileges. Whenever Hermes needs you to 
 
 | Script | What it does | Status |
 |--------|-------------|--------|
-| `update-caddy-jobs-dashboard.sh` | Writes new Caddyfile with /jobs path routing, reloads Caddy | 🔴 Not yet run |
+| `update-caddy-jobs-dashboard.sh` | Writes Caddyfile with /jobs* path routing, reloads Caddy | ✅ Applied |
+| `install-docker.sh` | Installs docker.io, adds user to docker group | ✅ Applied |
+| `build-app.sh` | Build Docker image & start container | ✅ Applied |
+| `recreate-container.sh` | Stop, remove, start fresh container (picks up updated .env vars) | 🔴 Pending — run to fix stale env vars |
