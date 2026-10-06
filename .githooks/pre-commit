@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+backend_dir="$repo_root/jobs-dashboard/backend"
+
+if [[ ! -f "$backend_dir/package.json" ]]; then
+  echo "Coverage gate failed: backend package not found at $backend_dir" >&2
+  exit 1
+fi
+if ! command -v npm >/dev/null 2>&1; then
+  echo "Coverage gate failed: npm is required to run backend coverage." >&2
+  exit 1
+fi
+
+echo "[pre-commit] Running backend coverage gate (minimum 85% lines)..."
+cd "$backend_dir"
+npm run coverage
