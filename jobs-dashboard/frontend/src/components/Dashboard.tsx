@@ -22,8 +22,8 @@ const DEFAULT_FILTERS = {
 };
 
 export function Dashboard({ user, onLogout }: DashboardProps) {
-  const { result, loading, fetchJobs } = useJobs();
-  const { options, fetchOptions } = useFilterOptions();
+  const { result, loading, error: jobsError, fetchJobs } = useJobs();
+  const { options, error: filterOptionsError, fetchOptions } = useFilterOptions();
   const [filters, setFilters] = useState({ ...DEFAULT_FILTERS });
   const [page, setPage] = useState(1);
 
@@ -108,6 +108,12 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
           <StatCard label="Sources" value={options.sources.length} />
         </div>
 
+        {filterOptionsError && (
+          <p className="text-sm text-hermes-red" role="alert">
+            Could not load filter options ({filterOptionsError}).
+          </p>
+        )}
+
         {/* Filters */}
         <FilterBar
           options={options}
@@ -138,7 +144,14 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
         </div>
 
         {/* Job cards grid */}
-        {loading ? (
+        {jobsError ? (
+          <div className="flex flex-col items-center gap-3 py-20 text-center" role="alert">
+            <p className="text-hermes-red">Unable to load job listings ({jobsError}).</p>
+            <button onClick={loadJobs} className="text-sm text-hermes-accent hover:underline">
+              Retry
+            </button>
+          </div>
+        ) : loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="w-6 h-6 border-2 border-hermes-accent border-t-transparent rounded-full animate-spin" />
           </div>

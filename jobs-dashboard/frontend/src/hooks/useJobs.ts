@@ -18,6 +18,10 @@ interface FetchJobsParams {
   limit?: number;
 }
 
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Unknown error";
+}
+
 function buildQuery(params: FetchJobsParams): string {
   const q = new URLSearchParams();
   for (const [key, val] of Object.entries(params)) {
@@ -44,7 +48,8 @@ export function useJobs() {
       const data = (await res.json()) as JobsResult;
       setResult(data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Unknown error");
+      setResult(null);
+      setError(getErrorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -60,27 +65,29 @@ export function useFilterOptions() {
     sources: [],
   });
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchOptions = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch(`${API_BASE}/filters`, { credentials: "include" });
-      if (res.ok) {
-        setOptions((await res.json()) as FilterOptions);
-      }
-    } catch {
-      // silently fail — options are not critical
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setOptions((await res.json()) as FilterOptions);
+    } catch (e) {
+      setError(getErrorMessage(e));
     } finally {
       setLoading(false);
     }
   }, []);
 
-  return { options, loading, fetchOptions };
+  return { options, loading, error, fetchOptions };
 }
 
 export async function fetchUser() {
   const res = await fetch(`${BASE}/auth/user`, { credentials: "include" });
-  if (!res.ok) return null;
+  if (res.status === 401) return null;
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
 
