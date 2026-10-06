@@ -21,14 +21,17 @@ export function JobCard({ job }: JobCardProps) {
     <div className="bg-hermes-surface border border-hermes-border rounded-lg p-4 hover:border-hermes-accent/50 transition-colors flex flex-col gap-3">
       {/* Header */}
       <div className="flex justify-between items-start gap-2">
-        <div>
+        <div className="min-w-0 flex-1">
           <h3 className="text-hermes-text font-semibold text-sm leading-tight">
             {job.role}
           </h3>
           <p className="text-hermes-accent text-xs mt-0.5">{job.company}</p>
         </div>
         {job.source && (
-          <span className="shrink-0 text-[10px] uppercase tracking-wider bg-hermes-bg text-hermes-muted px-1.5 py-0.5 rounded">
+          <span
+            title={job.source}
+            className="min-w-0 max-w-[45%] shrink-0 truncate text-[10px] uppercase tracking-wider bg-hermes-bg text-hermes-muted px-1.5 py-0.5 rounded"
+          >
             {safeSourceLabel(job.source)}
           </span>
         )}
