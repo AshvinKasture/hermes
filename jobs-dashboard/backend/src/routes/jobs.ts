@@ -4,9 +4,9 @@ import { queryJobs, getJob, getFilterOptions } from "../db/jobs";
 const router = Router();
 
 // GET /api/jobs — list with filters, sort, pagination
-router.get("/", (req: Request, res: Response) => {
+router.get("/", async (req: Request, res: Response) => {
   try {
-    const result = queryJobs({
+    const result = await queryJobs({
       company: req.query.company as string | undefined,
       role: req.query.role as string | undefined,
       location: req.query.location as string | undefined,
@@ -27,9 +27,9 @@ router.get("/", (req: Request, res: Response) => {
 });
 
 // GET /api/jobs/filters — available filter options
-router.get("/filters", (_req: Request, res: Response) => {
+router.get("/filters", async (_req: Request, res: Response) => {
   try {
-    const options = getFilterOptions();
+    const options = await getFilterOptions();
     res.json(options);
   } catch (err) {
     console.error("Error fetching filter options:", err);
@@ -38,14 +38,14 @@ router.get("/filters", (_req: Request, res: Response) => {
 });
 
 // GET /api/jobs/:id — single job detail
-router.get("/:id", (req: Request, res: Response) => {
+router.get("/:id", async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {
       res.status(400).json({ error: "Invalid job ID" });
       return;
     }
-    const job = getJob(id);
+    const job = await getJob(id);
     if (!job) {
       res.status(404).json({ error: "Job not found" });
       return;
