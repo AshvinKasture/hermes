@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import passport from "passport";
+import { requireAuth, requireAllowedEmail } from "../auth/middleware";
 
 const router = Router();
 
@@ -12,18 +13,14 @@ router.get(
 // GET /auth/google/callback — handle OAuth callback
 router.get(
   "/google/callback",
-  passport.authenticate("google", { failureRedirect: "/login?error=auth_failed" }),
+  passport.authenticate("google", { failureRedirect: "/jobs/?error=auth_failed" }),
   (_req: Request, res: Response) => {
     res.redirect("/jobs/");
   }
 );
 
 // GET /auth/user — return current user or 401
-router.get("/user", (req: Request, res: Response) => {
-  if (!req.isAuthenticated()) {
-    res.status(401).json({ error: "Not authenticated" });
-    return;
-  }
+router.get("/user", requireAuth, requireAllowedEmail, (req: Request, res: Response) => {
   res.json(req.user);
 });
 

@@ -1,6 +1,5 @@
-import { logout } from "../hooks/useJobs";
-
 export function LoginPage() {
+  const loginError = new URLSearchParams(window.location.search).get("error");
   const handleLogin = () => {
     window.location.href = "/jobs/auth/google";
   };
@@ -12,6 +11,11 @@ export function LoginPage() {
           Job Openings Dashboard
         </h1>
         <p className="text-hermes-muted">Track your next career move</p>
+        {loginError === "auth_failed" && (
+          <p className="mt-3 text-sm text-hermes-red" role="alert">
+            Google sign-in failed. Please try again.
+          </p>
+        )}
       </div>
 
       <button
