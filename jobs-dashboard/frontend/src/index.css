@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@theme {
+  --color-hermes-bg: #0f0f14;
+  --color-hermes-surface: #1a1a24;
+  --color-hermes-border: #2a2a3a;
+  --color-hermes-text: #e0e0f0;
+  --color-hermes-muted: #8888a0;
+  --color-hermes-accent: #7c4dff;
+  --color-hermes-green: #22c979;
+  --color-hermes-red: #e55555;
+}
