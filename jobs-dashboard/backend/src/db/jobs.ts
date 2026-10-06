@@ -115,7 +115,7 @@ export async function queryJobs(query: JobsQuery): Promise<JobsResult> {
     // Count
     const countStmt = db.prepare(`SELECT COUNT(*) as cnt FROM job_listings ${where}`);
     countStmt.bind(params);
-    const total = countStmt.getAsObject().cnt as number || 0;
+    const total = countStmt.step() ? (countStmt.getAsObject().cnt as number) || 0 : 0;
 
     const sortColumn = cleanSortColumn(query.sort_by || DEFAULT_SORT.column);
     const sortOrder = cleanSortOrder(query.sort_order || DEFAULT_SORT.order);

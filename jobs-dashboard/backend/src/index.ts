@@ -35,7 +35,7 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // ── CORS ──
-app.use(cors({ origin: config.publicUrl, credentials: true }));
+app.use(cors({ origin: new URL(config.publicUrl).origin, credentials: true }));
 
 // ── Body parsing ──
 app.use(express.json());
@@ -56,8 +56,14 @@ app.get("*", (_req, res) => {
 });
 
 // ── Start ──
-app.listen(config.port, () => {
-  console.log(`Jobs dashboard backend running on port ${config.port}`);
-});
+export function startServer(port = config.port) {
+  return app.listen(port, () => {
+    console.log(`Jobs dashboard backend running on port ${port}`);
+  });
+}
+
+if (require.main === module) {
+  startServer();
+}
 
 export default app;
