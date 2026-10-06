@@ -13,13 +13,13 @@ echo "════════════════════════�
 echo ""
 echo "This will:"
 echo "  1. Write a new Caddyfile to /etc/caddy/Caddyfile"
-echo "  2. Add handle_path /jobs/* → localhost:9120"
+echo "  2. Add handle_path /jobs* → localhost:9120 (matches /jobs and /jobs/...)"
 echo "  3. Keep existing hermes.ashtech.dev → localhost:9119"
 echo "  4. Reload Caddy to apply the change"
 echo ""
 echo "Caddyfile will look like:"
 echo "  hermes.ashtech.dev {"
-echo "      handle_path /jobs/* {"
+echo "      handle_path /jobs* {"
 echo "          reverse_proxy localhost:9120"
 echo "      }"
 echo "      reverse_proxy localhost:9119"
@@ -37,7 +37,7 @@ echo "📝 Writing /etc/caddy/Caddyfile..."
 sudo tee /etc/caddy/Caddyfile > /dev/null <<'CADDYEOF'
 hermes.ashtech.dev {
 	# Job Openings Dashboard (strips /jobs prefix before proxying)
-	handle_path /jobs/* {
+	handle_path /jobs* {
 		reverse_proxy localhost:9120
 	}
 
