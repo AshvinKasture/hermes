@@ -4,6 +4,16 @@ interface JobCardProps {
   job: JobListing;
 }
 
+function safeSourceLabel(source: string): string {
+  try {
+    const url = new URL(source.startsWith("http") ? source : `https://${source}`);
+    return url.hostname.replace(/^www\./, "");
+  } catch {
+    // Source is not a URL — use the text before any parentheses
+    return source.split(/[()]/)[0].trim();
+  }
+}
+
 export function JobCard({ job }: JobCardProps) {
   const skills = job.skills?.split(",").map((s) => s.trim()).filter(Boolean) || [];
 
@@ -19,7 +29,7 @@ export function JobCard({ job }: JobCardProps) {
         </div>
         {job.source && (
           <span className="shrink-0 text-[10px] uppercase tracking-wider bg-hermes-bg text-hermes-muted px-1.5 py-0.5 rounded">
-            {new URL(job.source).hostname.replace("www.", "")}
+            {safeSourceLabel(job.source)}
           </span>
         )}
       </div>

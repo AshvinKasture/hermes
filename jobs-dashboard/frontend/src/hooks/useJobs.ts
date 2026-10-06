@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { JobsResult, JobListing, FilterOptions } from "../types/job";
 
-const API_BASE = "/api/jobs";
+const BASE = "/jobs";
+const API_BASE = `${BASE}/api/jobs`;
 
 interface FetchJobsParams {
   company?: string;
@@ -78,11 +79,11 @@ export function useFilterOptions() {
 }
 
 export async function fetchUser() {
-  const res = await fetch("/auth/user", { credentials: "include" });
+  const res = await fetch(`${BASE}/auth/user`, { credentials: "include" });
   if (!res.ok) return null;
   return res.json();
 }
 
 export async function logout() {
-  await fetch("/auth/logout", { method: "POST", credentials: "include" });
+  await fetch(`${BASE}/auth/logout`, { method: "POST", credentials: "include" });
 }

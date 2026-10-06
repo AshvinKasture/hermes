@@ -2,7 +2,7 @@ import { logout } from "../hooks/useJobs";
 
 export function LoginPage() {
   const handleLogin = () => {
-    window.location.href = "/auth/google";
+    window.location.href = "/jobs/auth/google";
   };
 
   return (
