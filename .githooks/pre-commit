@@ -1,23 +1,30 @@
 #!/usr/bin/env bash
+# Runs each project's coverage gate only when that project has staged changes.
+# To add a project, add its directory name to PROJECTS below.
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
-backend_dir="$repo_root/jobs-dashboard/backend"
-frontend_dir="$repo_root/jobs-dashboard/frontend"
+PROJECTS=(jobs-dashboard)
 
 if ! command -v npm >/dev/null 2>&1; then
   echo "Coverage gate failed: npm is required to run coverage." >&2
   exit 1
 fi
-for project_dir in "$backend_dir" "$frontend_dir"; do
-  if [[ ! -f "$project_dir/package.json" ]]; then
-    echo "Coverage gate failed: package not found at $project_dir" >&2
-    exit 1
+
+staged="$(git diff --cached --name-only --diff-filter=ACMR)"
+
+for project in "${PROJECTS[@]}"; do
+  if ! grep -q "^${project}/" <<<"$staged"; then
+    echo "[pre-commit] No staged changes in ${project}; skipping coverage gate."
+    continue
   fi
+  for part in backend frontend; do
+    dir="$repo_root/$project/$part"
+    if [[ ! -f "$dir/package.json" ]]; then
+      echo "Coverage gate failed: package not found at $dir" >&2
+      exit 1
+    fi
+    echo "[pre-commit] Running ${project}/${part} coverage gate (minimum 85% lines)..."
+    (cd "$dir" && npm run coverage)
+  done
 done
-
-echo "[pre-commit] Running backend coverage gate (minimum 85% lines)..."
-(cd "$backend_dir" && npm run coverage)
-
-echo "[pre-commit] Running frontend coverage gate (minimum 85% lines)..."
-(cd "$frontend_dir" && npm run coverage)
