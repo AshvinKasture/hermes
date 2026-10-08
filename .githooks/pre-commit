@@ -4,7 +4,7 @@
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
-PROJECTS=(jobs-dashboard)
+PROJECTS=(jobs-dashboard cockpit)
 
 if ! command -v npm >/dev/null 2>&1; then
   echo "Coverage gate failed: npm is required to run coverage." >&2
