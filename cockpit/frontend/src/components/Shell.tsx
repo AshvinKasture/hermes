@@ -1,4 +1,5 @@
 import type { Me } from "../lib/api";
+import { Avatar } from "./Avatar";
 
 export function Shell({ user, onLogout }: { user: Me; onLogout: () => void }) {
   return (
@@ -8,7 +9,7 @@ export function Shell({ user, onLogout }: { user: Me; onLogout: () => void }) {
           <span aria-hidden>🛩️</span> Cockpit
         </div>
         <div className="flex items-center gap-3 text-sm">
-          {user.picture && <img src={user.picture} alt="" className="h-7 w-7 rounded-full" referrerPolicy="no-referrer" />}
+          <Avatar name={user.name} src={user.picture} />
           <span className="text-ck-muted">{user.email}</span>
           <button
             onClick={onLogout}

@@ -19,7 +19,17 @@ export function createApp(config: Config, store: session.Store = new SqliteSessi
   app.disable("x-powered-by");
   app.set("trust proxy", 1); // Caddy sits in front
 
-  app.use(helmet());
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+          // Google profile pictures are served from *.googleusercontent.com
+          "img-src": ["'self'", "data:", "https://*.googleusercontent.com"],
+        },
+      },
+    })
+  );
   app.use(
     session({
       name: "cockpit.sid",
