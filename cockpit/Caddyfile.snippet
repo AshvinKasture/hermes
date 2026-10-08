@@ -1,0 +1,7 @@
+# Add inside the hermes.ashtech.dev site block, BEFORE the catch-all reverse_proxy.
+# The prefix is NOT stripped (no handle_path): the app mounts itself under /cockpit,
+# which keeps cookie paths and OAuth redirects correct.
+redir /cockpit /cockpit/
+handle /cockpit/* {
+	reverse_proxy 127.0.0.1:9200
+}
