@@ -73,6 +73,12 @@ test("serves the SPA shell for client routes and static assets", async () => {
   assert.match(await res.text(), /cockpit shell/);
 });
 
+test("CSP allows Google avatars but nothing else remote", async () => {
+  const csp = (await fetch(`${base}/cockpit/healthz`)).headers.get("content-security-policy") ?? "";
+  assert.match(csp, /img-src 'self' data: https:\/\/\*\.googleusercontent\.com/);
+  assert.match(csp, /default-src 'self'/);
+});
+
 test("sets security headers and hides x-powered-by", async () => {
   const res = await fetch(`${base}/cockpit/healthz`);
   assert.equal(res.headers.get("x-powered-by"), null);

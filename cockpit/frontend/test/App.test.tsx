@@ -47,10 +47,26 @@ describe("App auth states", () => {
     expect(fetch).toHaveBeenCalledWith("/cockpit/auth/logout", expect.objectContaining({ method: "POST" }));
   });
 
-  it("renders without an avatar when the user has no picture", async () => {
-    mockFetch(() => json({ name: "A", email: "a@b.c", picture: "" }));
+  it("shows initials when the user has no picture", async () => {
+    mockFetch(() => json({ name: "Ashvin Kasture", email: "a@b.c", picture: "" }));
     const { container } = render(<App />);
     await screen.findByText(/welcome/i);
     expect(container.querySelector("img")).toBeNull();
+    expect(screen.getByLabelText("Ashvin Kasture")).toHaveTextContent("AK");
+  });
+
+  it("falls back to initials when the picture fails to load", async () => {
+    mockFetch(() => json({ name: "Ashvin", email: "a@b.c", picture: "http://pic" }));
+    render(<App />);
+    const img = await screen.findByAltText("Ashvin");
+    fireEvent.error(img);
+    expect(await screen.findByLabelText("Ashvin")).toHaveTextContent("A");
+  });
+
+  it("uses a placeholder for a blank name", async () => {
+    mockFetch(() => json({ name: " ", email: "a@b.c", picture: "" }));
+    render(<App />);
+    await screen.findByText(/welcome/i);
+    expect(screen.getByText("?")).toBeInTheDocument();
   });
 });
