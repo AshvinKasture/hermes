@@ -13,6 +13,7 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
     },
     sessionSecret: "test-session-secret-test-session-secret",
     sessionDbPath: ":memory:",
+    metricsDbPath: ":memory:",
     allowedEmail: "owner@example.com",
     frontendDist: undefined,
     ...overrides,

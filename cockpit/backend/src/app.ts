@@ -8,10 +8,22 @@ import type { Config } from "./config";
 import { requireAuth, requireSameOrigin } from "./auth/middleware";
 import { setupPassport } from "./auth/passport";
 import { SqliteSessionStore } from "./auth/sqliteStore";
+import { MetricsCollector } from "./metrics/collector";
+import { MetricsStore } from "./metrics/store";
+import { metricsRouter } from "./routes/metrics";
+import { settingsRouter } from "./routes/settings";
 
 export const SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 
-export function createApp(config: Config, store: session.Store = new SqliteSessionStore(config.sessionDbPath)): Express {
+export interface AppDeps {
+  sessionStore?: session.Store;
+  collector?: MetricsCollector;
+  metricsStore: MetricsStore;
+}
+
+export function createApp(config: Config, deps: AppDeps): Express {
+  const store = deps.sessionStore ?? new SqliteSessionStore(config.sessionDbPath);
+  const collector = deps.collector ?? new MetricsCollector();
   const app = express();
   const isProd = config.nodeEnv === "production";
   const cookiePath = new URL(config.publicUrl).pathname || "/";
@@ -90,6 +102,8 @@ export function createApp(config: Config, store: session.Store = new SqliteSessi
     const { name, email, picture } = req.user!;
     res.json({ name, email, picture });
   });
+  api.use("/metrics", metricsRouter(collector, deps.metricsStore));
+  api.use("/settings", settingsRouter(deps.metricsStore));
   root.use("/api", api);
 
   // ── Frontend ──
