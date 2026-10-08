@@ -7,6 +7,7 @@ import { after, before, test } from "node:test";
 import session from "express-session";
 import { createApp } from "../src/app";
 import { SqliteSessionStore } from "../src/auth/sqliteStore";
+import { MetricsStore } from "../src/metrics/store";
 import { testConfig } from "./support/env";
 
 let server: Server;
@@ -19,7 +20,7 @@ before(async () => {
   dist = fs.mkdtempSync(path.join(os.tmpdir(), "cockpit-test-"));
   fs.writeFileSync(path.join(dist, "index.html"), "<main>cockpit shell</main>");
   store = new SqliteSessionStore(":memory:");
-  const app = createApp(cfg(), store as session.Store);
+  const app = createApp(cfg(), { sessionStore: store as session.Store, metricsStore: new MetricsStore(":memory:") });
   server = app.listen(0);
   await new Promise<void>((r) => server.once("listening", r));
   const addr = server.address();

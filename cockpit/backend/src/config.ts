@@ -6,6 +6,7 @@ export interface Config {
   google: { clientID: string; clientSecret: string; callbackURL: string };
   sessionSecret: string;
   sessionDbPath: string;
+  metricsDbPath: string;
   allowedEmail: string;
   frontendDist: string | undefined;
 }
@@ -43,6 +44,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     },
     sessionSecret,
     sessionDbPath: env.SESSION_DB_PATH || "/data/cockpit.db",
+    metricsDbPath: env.METRICS_DB_PATH || env.SESSION_DB_PATH || "/data/cockpit.db",
     allowedEmail,
     frontendDist: env.FRONTEND_DIST || undefined,
   };
