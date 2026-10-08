@@ -1,0 +1,28 @@
+services:
+  cockpit:
+    build: .
+    container_name: cockpit
+    restart: unless-stopped
+    # Run as the host user so file permissions match the shell (ashvin = 1001:1001).
+    user: "${APP_UID:-1001}:${APP_GID:-1001}"
+    ports:
+      # Loopback only: Caddy is the sole public entry point.
+      - "127.0.0.1:9200:9200"
+    environment:
+      - NODE_ENV=production
+      - PORT=9200
+      - PUBLIC_URL=https://hermes.ashtech.dev/cockpit
+      - SESSION_DB_PATH=/data/cockpit.db
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:?set GOOGLE_CLIENT_ID in .env}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:?set GOOGLE_CLIENT_SECRET in .env}
+      - SESSION_SECRET=${SESSION_SECRET:?set SESSION_SECRET in .env}
+      - ALLOWED_EMAIL=${ALLOWED_EMAIL:?set ALLOWED_EMAIL in .env}
+    volumes:
+      - ./data:/data:rw
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
