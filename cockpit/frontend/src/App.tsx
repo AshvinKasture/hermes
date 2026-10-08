@@ -1,6 +1,10 @@
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { LoginScreen } from "./components/LoginScreen";
 import { Shell } from "./components/Shell";
 import { useAuth } from "./hooks";
+import { Dashboard } from "./pages/Dashboard";
+import { History } from "./pages/History";
+import { Settings } from "./pages/Settings";
 
 export function App() {
   const { state, logout } = useAuth();
@@ -19,6 +23,17 @@ export function App() {
         </div>
       );
     case "authenticated":
-      return <Shell user={state.user} onLogout={logout} />;
+      return (
+        <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+          <Routes>
+            <Route element={<Shell user={state.user} onLogout={logout} />}>
+              <Route index element={<Dashboard />} />
+              <Route path="history" element={<History />} />
+              <Route path="settings" element={<Settings />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      );
   }
 }

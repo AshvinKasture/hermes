@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "../src/App";
+import { CURRENT } from "./helpers";
 
 function mockFetch(handler: (url: string, init?: RequestInit) => Response | Promise<Response>) {
   vi.stubGlobal("fetch", vi.fn((url: string, init?: RequestInit) => Promise.resolve(handler(url, init))));
@@ -36,37 +37,42 @@ describe("App auth states", () => {
 
   it("renders the shell for a signed-in user and signs out", async () => {
     mockFetch((url) =>
-      url.endsWith("/api/me") ? json({ name: "Ashvin", email: "a@b.c", picture: "http://pic" }) : json({ ok: true })
+      url.endsWith("/api/me")
+        ? json({ name: "Ashvin", email: "a@b.c", picture: "http://pic" })
+        : url.includes("/metrics/current")
+          ? json(CURRENT)
+          : json({ ok: true })
     );
     render(<App />);
-    expect(await screen.findByText(/welcome, ashvin/i)).toBeInTheDocument();
-    expect(screen.getByText("a@b.c")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
+    expect(screen.getAllByText("a@b.c").length).toBeGreaterThan(0);
+    expect(screen.getByRole("navigation", { name: "Main" })).toHaveTextContent(/History/);
 
-    fireEvent.click(screen.getByRole("button", { name: /sign out/i }));
+    fireEvent.click(screen.getAllByRole("button", { name: /sign out/i })[0]);
     await waitFor(() => expect(screen.getByRole("link", { name: /sign in with google/i })).toBeInTheDocument());
     expect(fetch).toHaveBeenCalledWith("/cockpit/auth/logout", expect.objectContaining({ method: "POST" }));
   });
 
   it("shows initials when the user has no picture", async () => {
-    mockFetch(() => json({ name: "Ashvin Kasture", email: "a@b.c", picture: "" }));
+    mockFetch((url) => (url.includes("/metrics/current") ? json(CURRENT) : json({ name: "Ashvin Kasture", email: "a@b.c", picture: "" })));
     const { container } = render(<App />);
-    await screen.findByText(/welcome/i);
+    await screen.findByRole("heading", { name: "Dashboard" });
     expect(container.querySelector("img")).toBeNull();
-    expect(screen.getByLabelText("Ashvin Kasture")).toHaveTextContent("AK");
+    expect(screen.getAllByLabelText("Ashvin Kasture")[0]).toHaveTextContent("AK");
   });
 
   it("falls back to initials when the picture fails to load", async () => {
-    mockFetch(() => json({ name: "Ashvin", email: "a@b.c", picture: "http://pic" }));
+    mockFetch((url) => (url.includes("/metrics/current") ? json(CURRENT) : json({ name: "Ashvin", email: "a@b.c", picture: "http://pic" })));
     render(<App />);
-    const img = await screen.findByAltText("Ashvin");
-    fireEvent.error(img);
-    expect(await screen.findByLabelText("Ashvin")).toHaveTextContent("A");
+    const imgs = await screen.findAllByAltText("Ashvin");
+    imgs.forEach((i) => fireEvent.error(i));
+    expect((await screen.findAllByLabelText("Ashvin"))[0]).toHaveTextContent("A");
   });
 
   it("uses a placeholder for a blank name", async () => {
-    mockFetch(() => json({ name: " ", email: "a@b.c", picture: "" }));
+    mockFetch((url) => (url.includes("/metrics/current") ? json(CURRENT) : json({ name: " ", email: "a@b.c", picture: "" })));
     render(<App />);
-    await screen.findByText(/welcome/i);
-    expect(screen.getByText("?")).toBeInTheDocument();
+    await screen.findByRole("heading", { name: "Dashboard" });
+    expect(screen.getAllByText("?").length).toBeGreaterThan(0);
   });
 });
