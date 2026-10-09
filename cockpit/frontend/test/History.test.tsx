@@ -39,6 +39,26 @@ describe("History", () => {
     expect(screen.getByTestId("chart-memPct")).toBeInTheDocument();
   });
 
+  it("toggles memory between percent and absolute value", async () => {
+    const f = mockApi({ "/metrics?": () => json({ from: 0, to: 1, points }) });
+    render(<History />);
+    await waitFor(() => expect(f).toHaveBeenCalled());
+    const percent = await screen.findByRole("button", { name: "%" });
+    const value = screen.getByRole("button", { name: "GB" });
+    expect(percent).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("chart-memPct")).toBeInTheDocument();
+
+    fireEvent.click(value);
+    expect(value).toHaveAttribute("aria-pressed", "true");
+    expect(percent).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByTestId("chart-memUsed")).toBeInTheDocument();
+    expect(screen.queryByTestId("chart-memPct")).toBeNull();
+    expect(screen.getByTestId("chart-cpuPct")).toBeInTheDocument(); // CPU is unaffected
+
+    fireEvent.click(percent);
+    expect(screen.getByTestId("chart-memPct")).toBeInTheDocument();
+  });
+
   it("requests a new range when a preset is chosen", async () => {
     const f = mockApi({ "/metrics?": () => json({ from: 0, to: 1, points }) });
     render(<History />);

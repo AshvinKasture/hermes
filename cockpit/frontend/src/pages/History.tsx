@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Card } from "../components/Card";
 import { MetricChart } from "../components/MetricChart";
 import { useFetch } from "../hooks";
-import { DEFAULT_PRESET, PRESETS, fromLocalInput, toLocalInput } from "../lib/format";
+import { DEFAULT_PRESET, PRESETS, formatBytes, fromLocalInput, toLocalInput } from "../lib/format";
 import { fetchHistory } from "../lib/metrics";
 
 interface Range {
@@ -10,12 +10,15 @@ interface Range {
   to: number;
 }
 
+type RamMode = "percent" | "value";
+
 export function History() {
   const [presetId, setPresetId] = useState<string | null>(DEFAULT_PRESET);
   const [custom, setCustom] = useState<Range | null>(null);
   const customOpen = true;
   const [tick, setTick] = useState(0); // bumps "now" for presets on refresh
   const [customError, setCustomError] = useState<string | null>(null);
+  const [ramMode, setRamMode] = useState<RamMode>("percent");
   const [draft, setDraft] = useState(() => ({ from: toLocalInput(Date.now() - 3_600_000), to: toLocalInput(Date.now()) }));
 
   const range = useMemo<Range>(() => {
@@ -56,10 +59,26 @@ export function History() {
 
   const points = data?.points ?? [];
   const empty = !loading && !error && points.length === 0;
+  const memTotal = points.reduce((m, p) => Math.max(m, p.memTotal), 0);
   const customActive = custom !== null;
 
   const pill = (active: boolean) =>
     `rounded-lg px-3 py-1.5 text-sm transition ${active ? "bg-ck-accent font-medium text-ck-bg" : "bg-ck-raised text-ck-muted hover:text-ck-text"}`;
+
+  const ramToggle = (
+    <div role="group" aria-label="RAM unit" className="flex overflow-hidden rounded-lg border border-ck-border text-xs">
+      {(["percent", "value"] as const).map((m) => (
+        <button
+          key={m}
+          onClick={() => setRamMode(m)}
+          aria-pressed={ramMode === m}
+          className={`px-2.5 py-1 transition ${ramMode === m ? "bg-ck-accent text-ck-bg" : "text-ck-muted hover:text-ck-text"}`}
+        >
+          {m === "percent" ? "%" : "GB"}
+        </button>
+      ))}
+    </div>
+  );
 
   return (
     <div className="space-y-5">
@@ -125,18 +144,35 @@ export function History() {
               seriesName="CPU"
               onZoom={useCustom}
             />
-            <MetricChart
-              title="Memory usage"
-              data={points}
-              dataKey="memPct"
-              color="var(--color-ck-green)"
-              range={range}
-              yDomain={[0, 100]}
-              yTick={(v) => `${v}%`}
-              valueLabel={(v) => `${v.toFixed(1)}%`}
-              seriesName="RAM"
-              onZoom={useCustom}
-            />
+            {ramMode === "percent" ? (
+              <MetricChart
+                title="Memory usage"
+                data={points}
+                dataKey="memPct"
+                color="var(--color-ck-green)"
+                range={range}
+                yDomain={[0, 100]}
+                yTick={(v) => `${v}%`}
+                valueLabel={(v) => `${v.toFixed(1)}%`}
+                seriesName="RAM"
+                action={ramToggle}
+                onZoom={useCustom}
+              />
+            ) : (
+              <MetricChart
+                title="Memory usage"
+                data={points}
+                dataKey="memUsed"
+                color="var(--color-ck-green)"
+                range={range}
+                yDomain={[0, memTotal || 1]}
+                yTick={(v) => formatBytes(v)}
+                valueLabel={(v) => `${formatBytes(v)} of ${formatBytes(memTotal)}`}
+                seriesName="RAM"
+                action={ramToggle}
+                onZoom={useCustom}
+              />
+            )}
           </div>
         </>
       )}
