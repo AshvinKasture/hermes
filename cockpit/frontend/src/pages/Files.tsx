@@ -7,9 +7,10 @@ import { EditorPanel, isDirty, type OpenFile } from "../components/files/EditorP
 import { FileIcon } from "../components/files/FileIcon";
 import { FileList, type ViewMode } from "../components/files/FileList";
 import { FileTree } from "../components/files/FileTree";
+import { PropertiesPanel } from "../components/files/PropertiesPanel";
 import { useFetch, usePersistentState } from "../hooks";
 import { ApiError } from "../lib/api";
-import { baseName, breadcrumbs, joinPath, parentPath, sortEntries, type SortDir, type SortKey } from "../lib/fileUtils";
+import { baseName, breadcrumbs, joinPath, needsSeparator, parentPath, sortEntries, type SortDir, type SortKey } from "../lib/fileUtils";
 import {
   createEntry, deleteEntry, downloadUrl, fsInfo, listDir, readFile, renameEntry, searchFiles, uploadFile,
   type FsEntry, type FsInfo, type Listing, type SearchResult,
@@ -57,6 +58,7 @@ function Explorer({ info }: { info: FsInfo }) {
   const [view, setView] = usePersistentState<ViewMode>("files.view", "list");
   const [sort, setSort] = usePersistentState<{ key: SortKey; dir: SortDir }>("files.sort", { key: "name", dir: "asc" });
   const [showHidden, setShowHidden] = usePersistentState("files.hidden", false);
+  const [treeCollapsed, setTreeCollapsed] = usePersistentState("files.treeCollapsed", false);
 
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult | null>(null);
@@ -64,9 +66,11 @@ function Explorer({ info }: { info: FsInfo }) {
 
   const [openFiles, setOpenFiles] = useState<OpenFile[]>([]);
   const [activePath, setActivePath] = useState<string | null>(null);
+  const [editorMode, setEditorMode] = usePersistentState<"preview" | "fullscreen">("files.editorMode", "preview");
 
   const [menu, setMenu] = useState<{ x: number; y: number; entry: FsEntry | null } | null>(null);
   const [dialog, setDialog] = useState<Dialog | null>(null);
+  const [properties, setProperties] = useState<FsEntry | null>(null);
   const [dragging, setDragging] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -289,6 +293,7 @@ function Explorer({ info }: { info: FsInfo }) {
       { label: "Rename", onSelect: () => setDialog({ kind: "rename", entry }), disabled: !entry.writable, hint: "F2", separator: true },
       { label: inTrash ? "Delete permanently" : "Move to trash", onSelect: () => setDialog({ kind: "delete", entry }), disabled: !entry.writable, danger: true, hint: "Del" },
       { label: "Copy path", onSelect: () => void copyPath(entry.path), separator: true },
+      { label: "Properties", onSelect: () => setProperties(entry) },
     ];
   }
 
@@ -305,15 +310,27 @@ function Explorer({ info }: { info: FsInfo }) {
   const crumbs = breadcrumbs(cwd);
   const btn = "rounded-lg border border-ck-border px-2.5 py-1.5 text-sm text-ck-muted transition hover:bg-ck-raised hover:text-ck-text disabled:cursor-not-allowed disabled:opacity-40";
   const showEditor = openFiles.length > 0;
+  const fullscreen = showEditor && editorMode === "fullscreen";
 
   return (
     <div onKeyDown={onKeyDown} className="flex h-[calc(100vh-4rem)] min-h-[32rem] flex-col overflow-hidden rounded-2xl border border-ck-border bg-ck-surface shadow-lg shadow-black/20 lg:flex-row">
-      <aside className="hidden w-56 shrink-0 border-r border-ck-border lg:block">
-        <FileTree cwd={cwd} home={info.home} showHidden={showHidden} version={version} cwdDirs={cwdDirs} onNavigate={navigate} />
+      <aside className={`hidden shrink-0 border-r border-ck-border transition-[width] lg:block ${treeCollapsed ? "lg:w-11" : "lg:w-56"} ${fullscreen ? "lg:hidden" : ""}`}>
+        {treeCollapsed ? (
+          <div className="flex h-full flex-col items-center gap-2 p-2">
+            <button onClick={() => setTreeCollapsed(false)} aria-label="Expand folder tree" title="Expand folder tree" className="flex h-8 w-8 items-center justify-center rounded-lg text-ck-muted transition hover:bg-ck-raised hover:text-ck-text">▶</button>
+          </div>
+        ) : (
+          <div className="flex h-full flex-col">
+            <div className="flex justify-end px-2 pt-2">
+              <button onClick={() => setTreeCollapsed(true)} aria-label="Collapse folder tree" title="Collapse folder tree" className="flex h-6 w-6 items-center justify-center rounded text-ck-muted transition hover:bg-ck-raised hover:text-ck-text">◀</button>
+            </div>
+            <FileTree cwd={cwd} home={info.home} showHidden={showHidden} version={version} cwdDirs={cwdDirs} onNavigate={navigate} />
+          </div>
+        )}
       </aside>
 
       <section
-        className="relative flex min-h-0 min-w-0 flex-1 flex-col"
+        className={`relative flex min-h-0 min-w-0 flex-1 flex-col ${fullscreen ? "hidden lg:hidden" : ""}`}
         onDragOver={onDragOver}
         onDragLeave={(e) => e.currentTarget === e.target && setDragging(false)}
         onDrop={onDrop}
@@ -321,10 +338,10 @@ function Explorer({ info }: { info: FsInfo }) {
         {/* Toolbar */}
         <div className="flex flex-wrap items-center gap-2 border-b border-ck-border p-3">
           <button className={btn} onClick={() => navigate(parentPath(cwd))} disabled={cwd === "/"} aria-label="Go to parent folder" title="Up one level">↑</button>
-          <nav aria-label="Breadcrumb" className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto text-sm">
+          <nav aria-label="Breadcrumb" className="scrollbar-thin flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto text-sm">
             {crumbs.map((c, i) => (
               <span key={c.path} className="flex shrink-0 items-center">
-                {i > 0 && <span aria-hidden className="px-0.5 text-ck-muted">/</span>}
+                {needsSeparator(crumbs, i) && <span aria-hidden className="px-0.5 text-ck-muted">/</span>}
                 <button onClick={() => navigate(c.path)} aria-current={i === crumbs.length - 1 ? "page" : undefined} className={`rounded-md px-1.5 py-0.5 transition hover:bg-ck-raised ${i === crumbs.length - 1 ? "font-medium text-ck-text" : "text-ck-muted"}`}>
                   {c.name}
                 </button>
@@ -439,10 +456,19 @@ function Explorer({ info }: { info: FsInfo }) {
       </section>
 
       {showEditor && (
-        <section aria-label="Editor" className="flex min-h-0 min-w-0 flex-1 flex-col border-t border-ck-border lg:flex-[1.3] lg:border-l lg:border-t-0">
+        <section
+          aria-label="Editor"
+          className={
+            fullscreen
+              ? "fixed inset-0 z-40 flex flex-col bg-ck-bg"
+              : "flex min-h-0 min-w-0 flex-1 flex-col border-t border-ck-border lg:flex-[1.3] lg:border-l lg:border-t-0"
+          }
+        >
           <EditorPanel
             files={openFiles}
             activePath={activePath}
+            mode={editorMode}
+            onModeChange={setEditorMode}
             onActivate={setActivePath}
             onClose={closeFile}
             onUpdate={updateFile}
@@ -453,6 +479,8 @@ function Explorer({ info }: { info: FsInfo }) {
           />
         </section>
       )}
+
+      {properties && <PropertiesPanel entry={properties} onClose={() => setProperties(null)} />}
 
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menuItems(menu.entry)} onClose={() => setMenu(null)} />}
 

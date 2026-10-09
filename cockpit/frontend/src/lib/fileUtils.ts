@@ -24,6 +24,12 @@ export function breadcrumbs(path: string): { name: string; path: string }[] {
   return out;
 }
 
+/**
+ * Separator rendering helper: the root crumb already reads as "/", so a literal "/" before the
+ * next segment would double up ("//home"). Only insert a separator between two non-root crumbs.
+ */
+export const needsSeparator = (crumbs: { path: string }[], i: number): boolean => i > 0 && crumbs[i - 1].path !== "/";
+
 /** Every directory from the root down to `path`, inclusive. */
 export const ancestors = (path: string): string[] => breadcrumbs(path).map((b) => b.path);
 

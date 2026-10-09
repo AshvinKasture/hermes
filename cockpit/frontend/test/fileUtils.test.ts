@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ancestors, baseName, breadcrumbs, categoryFor, extensionOf, formatDate, formatMode, joinPath, parentPath, sortEntries } from "../src/lib/fileUtils";
+import { ancestors, baseName, breadcrumbs, categoryFor, extensionOf, formatDate, formatMode, joinPath, needsSeparator, parentPath, sortEntries } from "../src/lib/fileUtils";
 import type { FsEntry } from "../src/lib/files";
 
 const e = (name: string, o: Partial<FsEntry> = {}): FsEntry => ({
@@ -25,6 +25,15 @@ describe("paths", () => {
       { name: "ashvin", path: "/home/ashvin" },
     ]);
     expect(ancestors("/a/b")).toEqual(["/", "/a", "/a/b"]);
+  });
+
+  it("never inserts a separator right after the root crumb, only between deeper ones", () => {
+    const root = breadcrumbs("/");
+    expect(needsSeparator(root, 0)).toBe(false);
+    const nested = breadcrumbs("/home/ashvin");
+    expect(needsSeparator(nested, 0)).toBe(false); // "/"
+    expect(needsSeparator(nested, 1)).toBe(false); // "home" right after "/"
+    expect(needsSeparator(nested, 2)).toBe(true); // "ashvin" after "home"
   });
 });
 
