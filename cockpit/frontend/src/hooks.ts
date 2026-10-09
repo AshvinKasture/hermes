@@ -88,3 +88,27 @@ export function useFetch<T>(fetcher: () => Promise<T>, deps: unknown[]): AsyncSt
 
   return { ...state, reload: () => setNonce((n) => n + 1) };
 }
+
+/** useState backed by localStorage (falls back silently if storage is unavailable). */
+export function usePersistentState<T>(key: string, initial: T): [T, (v: T) => void] {
+  const [value, setValue] = useState<T>(() => {
+    try {
+      const raw = window.localStorage.getItem(`cockpit.${key}`);
+      return raw === null ? initial : (JSON.parse(raw) as T);
+    } catch {
+      return initial;
+    }
+  });
+  const set = useCallback(
+    (v: T) => {
+      setValue(v);
+      try {
+        window.localStorage.setItem(`cockpit.${key}`, JSON.stringify(v));
+      } catch {
+        /* storage full or blocked: keep the in-memory value */
+      }
+    },
+    [key]
+  );
+  return [value, set];
+}
