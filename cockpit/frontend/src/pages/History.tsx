@@ -12,6 +12,9 @@ interface Range {
 
 type RamMode = "percent" | "value";
 
+// Both charts share this id so hovering one shows the same timestamp on the other.
+const SYNC_ID = "history";
+
 export function History() {
   const [presetId, setPresetId] = useState<string | null>(DEFAULT_PRESET);
   const [custom, setCustom] = useState<Range | null>(null);
@@ -150,6 +153,7 @@ export function History() {
               yTick={(v) => `${v}%`}
               valueLabel={(v) => `${v.toFixed(1)}%`}
               seriesName="CPU"
+              syncId={SYNC_ID}
               onZoom={useCustom}
             />
             {ramMode === "percent" ? (
@@ -163,6 +167,7 @@ export function History() {
                 yTick={(v) => `${v}%`}
                 valueLabel={(v) => `${v.toFixed(1)}%`}
                 seriesName="RAM"
+                syncId={SYNC_ID}
                 action={ramToggle}
                 onZoom={useCustom}
               />
@@ -177,6 +182,7 @@ export function History() {
                 yTick={(v) => formatBytes(v)}
                 valueLabel={(v) => `${formatBytes(v)} of ${formatBytes(memTotal)}`}
                 seriesName="RAM"
+                syncId={SYNC_ID}
                 action={ramToggle}
                 onZoom={useCustom}
               />

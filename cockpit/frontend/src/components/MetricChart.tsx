@@ -20,12 +20,14 @@ interface Props<T extends { ts: number }> {
   valueLabel: (v: number) => string;
   seriesName: string;
   action?: ReactNode;
+  /** Charts sharing a syncId show the tooltip and cursor for the same point together. */
+  syncId?: string;
   onZoom: (range: ChartRange) => void;
 }
 
 /** One time-series line chart with round x-axis ticks and drag-to-zoom. */
 export function MetricChart<T extends { ts: number }>({
-  title, data, dataKey, color, range, yDomain, yTick, valueLabel, seriesName, action, onZoom,
+  title, data, dataKey, color, range, yDomain, yTick, valueLabel, seriesName, action, syncId, onZoom,
 }: Props<T>) {
   const [drag, setDrag] = useState<{ a: number; b: number } | null>(null);
   const span = range.to - range.from;
@@ -42,6 +44,7 @@ export function MetricChart<T extends { ts: number }>({
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
             data={data}
+            syncId={syncId}
             margin={{ top: 4, right: 12, bottom: 0, left: 0 }}
             onMouseDown={(e) => typeof e?.activeLabel === "number" && setDrag({ a: e.activeLabel, b: e.activeLabel })}
             onMouseMove={(e) => drag && typeof e?.activeLabel === "number" && setDrag({ ...drag, b: e.activeLabel })}
