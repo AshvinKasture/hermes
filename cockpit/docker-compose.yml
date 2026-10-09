@@ -13,12 +13,29 @@ services:
       - PORT=9200
       - PUBLIC_URL=https://hermes.ashtech.dev/cockpit
       - SESSION_DB_PATH=/data/cockpit.db
+      # The host filesystem is mounted at /host (read-only); /home/ashvin is mounted read-write on top.
+      - FS_ROOT=/host
+      - FS_HOME=/home/ashvin
+      # CPU/RAM/uptime in the container's own /proc are already host-wide.
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:?set GOOGLE_CLIENT_ID in .env}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:?set GOOGLE_CLIENT_SECRET in .env}
       - SESSION_SECRET=${SESSION_SECRET:?set SESSION_SECRET in .env}
       - ALLOWED_EMAIL=${ALLOWED_EMAIL:?set ALLOWED_EMAIL in .env}
     volumes:
       - ./data:/data:rw
+      # Host filesystem, read-only. The kernel refuses writes here even if the app had a bug.
+      # rslave propagates host sub-mounts (e.g. /boot, /mnt) into the view.
+      - type: bind
+        source: /
+        target: /host
+        read_only: true
+        bind:
+          propagation: rslave
+      # The one read-write zone. Mounted over the read-only root so writes land on the real home.
+      - type: bind
+        source: /home/ashvin
+        target: /host/home/ashvin
+        read_only: false
     security_opt:
       - no-new-privileges:true
     cap_drop:

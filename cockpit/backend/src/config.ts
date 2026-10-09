@@ -9,6 +9,15 @@ export interface Config {
   metricsDbPath: string;
   allowedEmail: string;
   frontendDist: string | undefined;
+  fs: { root: string; home: string; maxEditBytes: number; maxUploadBytes: number };
+}
+
+function intEnv(env: NodeJS.ProcessEnv, name: string, fallback: number): number {
+  const raw = env[name];
+  if (raw === undefined || raw === "") return fallback;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n <= 0) throw new Error(`${name} must be a positive integer`);
+  return n;
 }
 
 function required(env: NodeJS.ProcessEnv, name: string): string {
@@ -47,5 +56,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     metricsDbPath: env.METRICS_DB_PATH || env.SESSION_DB_PATH || "/data/cockpit.db",
     allowedEmail,
     frontendDist: env.FRONTEND_DIST || undefined,
+    fs: {
+      // Where the host filesystem is visible to this process ("/host" in Docker).
+      root: env.FS_ROOT || "/",
+      // The only read-write zone; the rest of the filesystem is read-only.
+      home: (env.FS_HOME || "/home/ashvin").replace(/\/+$/, "") || "/home/ashvin",
+      maxEditBytes: intEnv(env, "FS_MAX_EDIT_BYTES", 5 * 1024 * 1024),
+      maxUploadBytes: intEnv(env, "FS_MAX_UPLOAD_BYTES", 200 * 1024 * 1024),
+    },
   };
 }

@@ -16,6 +16,7 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
     metricsDbPath: ":memory:",
     allowedEmail: "owner@example.com",
     frontendDist: undefined,
+    fs: { root: "/", home: "/home/test", maxEditBytes: 1024 * 1024, maxUploadBytes: 4 * 1024 * 1024 },
     ...overrides,
   };
 }
