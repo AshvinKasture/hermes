@@ -3,10 +3,14 @@ import { vi } from "vitest";
 export const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
-/** Route-based fetch mock. Keys are matched as substrings of the URL, first match wins. */
+/**
+ * Route-based fetch mock. A key matches when the URL contains it, first match wins. A key ending in
+ * "$" must match the end of the URL, so "path=%2F$" matches the root but not "path=%2Fhome".
+ */
 export function mockApi(routes: Record<string, (init?: RequestInit, url?: string) => Response>) {
+  const matches = (url: string, k: string) => (k.endsWith("$") ? url.endsWith(k.slice(0, -1)) : url.includes(k));
   const fn = vi.fn((url: string, init?: RequestInit) => {
-    const key = Object.keys(routes).find((k) => url.includes(k));
+    const key = Object.keys(routes).find((k) => matches(url, k));
     return Promise.resolve(key ? routes[key](init, url) : json({ error: "not mocked: " + url }, 404));
   });
   vi.stubGlobal("fetch", fn);

@@ -75,4 +75,18 @@ describe("App auth states", () => {
     await screen.findByRole("heading", { name: "Dashboard" });
     expect(screen.getAllByText("?").length).toBeGreaterThan(0);
   });
+
+  it("collapses the sidebar to icons only and remembers the choice", async () => {
+    window.localStorage.clear();
+    mockFetch((url) => (url.includes("/metrics/current") ? json(CURRENT) : json({ name: "Ashvin", email: "a@b.c", picture: "" })));
+    render(<App />);
+    await screen.findByRole("heading", { name: "Dashboard" });
+    expect(screen.getByRole("navigation", { name: "Main" })).toHaveTextContent("Dashboard");
+    fireEvent.click(screen.getByRole("button", { name: "Collapse sidebar" }));
+    expect(window.localStorage.getItem("cockpit.shell.collapsed")).toBe("true");
+    expect(screen.getByRole("navigation", { name: "Main" })).not.toHaveTextContent("Dashboard");
+    expect(screen.getByRole("link", { name: "Dashboard" })).toBeInTheDocument(); // icon-only link keeps its accessible name
+    fireEvent.click(screen.getByRole("button", { name: "Expand sidebar" }));
+    expect(screen.getByRole("navigation", { name: "Main" })).toHaveTextContent("Dashboard");
+  });
 });

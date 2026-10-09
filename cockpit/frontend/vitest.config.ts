@@ -10,7 +10,8 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["src/**/*.{ts,tsx}"],
-      exclude: ["src/main.tsx", "src/vite-env.d.ts"],
+      // monacoSetup/monacoContrib only wire Monaco and its workers, which jsdom cannot run.
+      exclude: ["src/main.tsx", "src/vite-env.d.ts", "src/components/files/monacoSetup.ts", "src/components/files/monacoContrib.ts"],
       reporter: ["text"],
       thresholds: { lines: 85 },
     },
