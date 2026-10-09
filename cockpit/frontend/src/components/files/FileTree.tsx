@@ -100,7 +100,7 @@ export function FileTree({ cwd, home, showHidden, version, cwdDirs, onNavigate }
           <span aria-hidden>🗑</span> Trash
         </button>
       </div>
-      <ul role="tree" aria-label="Folder tree" className="min-h-0 flex-1 overflow-auto p-2">
+      <ul role="tree" aria-label="Folder tree" className="scrollbar-thin min-h-0 flex-1 overflow-auto p-2">
         {node("/", 0)}
       </ul>
     </nav>
