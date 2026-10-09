@@ -12,6 +12,8 @@ import { MetricsCollector } from "./metrics/collector";
 import { MetricsStore } from "./metrics/store";
 import { metricsRouter } from "./routes/metrics";
 import { settingsRouter } from "./routes/settings";
+import { FileService } from "./fs/service";
+import { fsErrorHandler, fsRouter } from "./routes/fs";
 
 export const SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 
@@ -19,11 +21,13 @@ export interface AppDeps {
   sessionStore?: session.Store;
   collector?: MetricsCollector;
   metricsStore: MetricsStore;
+  fileService?: FileService;
 }
 
 export function createApp(config: Config, deps: AppDeps): Express {
   const store = deps.sessionStore ?? new SqliteSessionStore(config.sessionDbPath);
   const collector = deps.collector ?? new MetricsCollector();
+  const files = deps.fileService ?? new FileService(config.fs);
   const app = express();
   const isProd = config.nodeEnv === "production";
   const cookiePath = new URL(config.publicUrl).pathname || "/";
@@ -62,7 +66,9 @@ export function createApp(config: Config, deps: AppDeps): Express {
   setupPassport(config);
   app.use(passport.initialize());
   app.use(passport.session());
-  app.use(express.json({ limit: "1mb" }));
+  const smallJson = express.json({ limit: "1mb" });
+  // The file-save route parses its own (larger) body, so skip it here.
+  app.use((req, res, next) => (req.path.endsWith("/api/fs/write") ? next() : smallJson(req, res, next)));
   app.use(requireSameOrigin(config));
 
   // Everything below is mounted under the public base path (e.g. /cockpit). Caddy forwards
@@ -104,6 +110,8 @@ export function createApp(config: Config, deps: AppDeps): Express {
   });
   api.use("/metrics", metricsRouter(collector, deps.metricsStore));
   api.use("/settings", settingsRouter(deps.metricsStore));
+  api.use("/fs", fsRouter(files));
+  api.use(fsErrorHandler);
   root.use("/api", api);
 
   // ── Frontend ──
