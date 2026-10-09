@@ -49,12 +49,41 @@ export const PRESETS: RangePreset[] = [
 ];
 export const DEFAULT_PRESET = "24h";
 
-/** Axis tick label: time-only for short spans, date + time for longer ones. */
-export function formatTick(ts: number, spanMs: number): string {
+/** Candidate tick spacings, smallest to largest. */
+const TICK_STEPS = [
+  MIN, 2 * MIN, 5 * MIN, 10 * MIN, 15 * MIN, 30 * MIN,
+  HOUR, 2 * HOUR, 3 * HOUR, 6 * HOUR, 12 * HOUR,
+  DAY, 2 * DAY, 7 * DAY, 14 * DAY, 30 * DAY,
+];
+
+export interface TimeTicks {
+  ticks: number[];
+  step: number;
+}
+
+/**
+ * Pick a round interval (5 min, 1 h, 6 h, 1 day, ...) that yields at most
+ * `maxTicks` labels, and return ticks aligned to local clock boundaries.
+ */
+export function timeTicks(from: number, to: number, maxTicks = 7): TimeTicks {
+  const span = Math.max(1, to - from);
+  const step = TICK_STEPS.find((s) => span / s <= maxTicks) ?? TICK_STEPS[TICK_STEPS.length - 1];
+  const offset = new Date(from).getTimezoneOffset() * MIN; // align to local, not UTC, boundaries
+  const first = Math.ceil((from - offset) / step) * step + offset;
+  const ticks: number[] = [];
+  for (let t = first; t <= to; t += step) ticks.push(t);
+  return { ticks, step };
+}
+
+const isLocalMidnight = (d: Date) => d.getHours() === 0 && d.getMinutes() === 0;
+
+/** Label for a tick: dates for day-scale steps (and midnights on longer spans), else HH:mm. */
+export function formatTimeTick(ts: number, step: number, span: number): string {
   const d = new Date(ts);
-  const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
-  if (spanMs <= DAY) return time;
-  return `${d.toLocaleDateString([], { month: "short", day: "numeric" })} ${time}`;
+  const date = d.toLocaleDateString([], { month: "short", day: "numeric" });
+  if (step >= DAY) return date;
+  if (span > 12 * HOUR && isLocalMidnight(d)) return date;
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
 /** `datetime-local` input value (local time) from epoch ms, and back. */

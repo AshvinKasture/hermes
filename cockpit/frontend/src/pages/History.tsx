@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { CartesianGrid, Legend, Line, LineChart, ReferenceArea, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Card } from "../components/Card";
 import { useFetch } from "../hooks";
-import { DEFAULT_PRESET, PRESETS, formatTick, fromLocalInput, toLocalInput } from "../lib/format";
+import { DEFAULT_PRESET, PRESETS, formatTimeTick, fromLocalInput, timeTicks, toLocalInput } from "../lib/format";
 import { fetchHistory } from "../lib/metrics";
 
 interface Range {
@@ -28,6 +28,7 @@ export function History() {
 
   const { data, error, loading, reload } = useFetch(() => fetchHistory(range.from, range.to), [range.from, range.to]);
   const span = range.to - range.from;
+  const axis = useMemo(() => timeTicks(range.from, range.to), [range.from, range.to]);
 
   function pick(id: string) {
     setCustom(null);
@@ -133,7 +134,9 @@ export function History() {
                   type="number"
                   scale="time"
                   domain={[range.from, range.to]}
-                  tickFormatter={(v: number) => formatTick(v, span)}
+                  ticks={axis.ticks}
+                  interval={0}
+                  tickFormatter={(v: number) => formatTimeTick(v, axis.step, span)}
                   stroke="var(--color-ck-muted)"
                   fontSize={12}
                 />
