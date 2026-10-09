@@ -419,4 +419,47 @@ describe("Files page", () => {
     window.dispatchEvent(ev);
     expect(ev.defaultPrevented).toBe(true);
   });
+
+  it("switches the editor between the side preview and fullscreen, and remembers the choice", async () => {
+    window.localStorage.clear();
+    mount({ "/fs/list": () => listing([ent("n.txt")]), "/fs/read": () => json(FILE) });
+    const { container } = renderAt();
+    fireEvent.doubleClick(await screen.findByRole("option", { name: /n\.txt/ }));
+    await screen.findByLabelText("editor n.txt");
+    expect(container.querySelector("section[aria-label=Editor]")).not.toHaveClass("fixed");
+    expect(screen.getByRole("option", { name: /n\.txt/ })).toBeInTheDocument(); // the file list is still visible in preview mode
+
+    fireEvent.click(screen.getByRole("button", { name: "Open fullscreen" }));
+    expect(window.localStorage.getItem("cockpit.files.editorMode")).toBe('"fullscreen"');
+    expect(container.querySelector("section[aria-label=Editor]")).toHaveClass("fixed");
+    expect(container.querySelector("section.relative")).toHaveClass("hidden"); // jsdom doesn't apply CSS, so check the class directly
+
+    fireEvent.click(screen.getByRole("button", { name: "Exit fullscreen" }));
+    expect(container.querySelector("section[aria-label=Editor]")).not.toHaveClass("fixed");
+    expect(screen.getByRole("option", { name: /n\.txt/ })).toBeInTheDocument();
+  });
+
+  it("collapses and expands the folder tree", async () => {
+    window.localStorage.clear();
+    mount({ "/fs/list": () => listing([ent("n.txt")]) });
+    renderAt();
+    expect(await screen.findByRole("navigation", { name: "Folders" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Collapse folder tree" }));
+    expect(window.localStorage.getItem("cockpit.files.treeCollapsed")).toBe("true");
+    expect(screen.queryByRole("navigation", { name: "Folders" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Expand folder tree" }));
+    expect(await screen.findByRole("navigation", { name: "Folders" })).toBeInTheDocument();
+  });
+
+  it("opens Properties for an entry from its context menu and shows its details", async () => {
+    mount({ "/fs/list": () => listing([ent("n.txt", { size: 123 })]) });
+    renderAt();
+    fireEvent.contextMenu(await screen.findByRole("option", { name: /n\.txt/ }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Properties" }));
+    const panel = await screen.findByRole("complementary", { name: "Properties" });
+    expect(panel).toHaveTextContent("n.txt");
+    expect(panel).toHaveTextContent("/home/a/n.txt");
+    fireEvent.click(screen.getByRole("button", { name: "Close properties" }));
+    expect(screen.queryByRole("complementary", { name: "Properties" })).toBeNull();
+  });
 });

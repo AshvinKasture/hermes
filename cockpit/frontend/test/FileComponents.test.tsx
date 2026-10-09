@@ -5,6 +5,7 @@ import { ConfirmDialog, PromptDialog } from "../src/components/files/Dialogs";
 import { FileIcon } from "../src/components/files/FileIcon";
 import { FileList } from "../src/components/files/FileList";
 import { FileTree } from "../src/components/files/FileTree";
+import { PropertiesPanel } from "../src/components/files/PropertiesPanel";
 import type { FsEntry } from "../src/lib/files";
 import { languageFor } from "../src/lib/language";
 import { json, mockApi } from "./helpers";
@@ -34,6 +35,28 @@ describe("FileIcon", () => {
     expect(screen.getByText("!")).toBeInTheDocument();
     rerender(<FileIcon entry={e("l", { isSymlink: true, linkTarget: "/t" })} large />);
     expect(screen.getByTitle("Symlink → /t")).toBeInTheDocument();
+  });
+});
+
+describe("PropertiesPanel", () => {
+  it("shows a file's details and a dash for size on folders", () => {
+    const onClose = vi.fn();
+    const { rerender } = render(<PropertiesPanel entry={e("notes.txt", { size: 2048, mode: 0o644, writable: true })} onClose={onClose} />);
+    const panel = screen.getByRole("complementary", { name: "Properties" });
+    expect(panel).toHaveTextContent("notes.txt");
+    expect(panel).toHaveTextContent("2.0 KB");
+    expect(panel).toHaveTextContent("rw-r--r--");
+    expect(panel).toHaveTextContent("Read & write");
+    fireEvent.click(screen.getByRole("button", { name: "Close properties" }));
+    expect(onClose).toHaveBeenCalled();
+
+    rerender(<PropertiesPanel entry={e("docs", { kind: "dir", size: 4096 })} onClose={onClose} />);
+    expect(screen.getByText("—")).toBeInTheDocument();
+    expect(screen.getByText("Folder")).toBeInTheDocument();
+
+    rerender(<PropertiesPanel entry={e("link", { isSymlink: true, linkTarget: "/etc/hosts", writable: false })} onClose={onClose} />);
+    expect(screen.getByText("/etc/hosts")).toBeInTheDocument();
+    expect(screen.getByText("Read-only")).toBeInTheDocument();
   });
 });
 

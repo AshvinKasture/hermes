@@ -26,13 +26,15 @@ export const isDirty = (f: OpenFile) => !f.blocked && f.draft !== f.saved;
 interface Props {
   files: OpenFile[];
   activePath: string | null;
+  mode: "preview" | "fullscreen";
+  onModeChange: (mode: "preview" | "fullscreen") => void;
   onActivate: (path: string) => void;
   onClose: (path: string) => void;
   onUpdate: (path: string, patch: Partial<OpenFile>) => void;
   onSaved: (path: string) => void;
 }
 
-export function EditorPanel({ files, activePath, onActivate, onClose, onUpdate, onSaved }: Props) {
+export function EditorPanel({ files, activePath, mode, onModeChange, onActivate, onClose, onUpdate, onSaved }: Props) {
   const active = files.find((f) => f.path === activePath) ?? null;
   const [confirmClose, setConfirmClose] = useState<string | null>(null);
 
@@ -65,20 +67,31 @@ export function EditorPanel({ files, activePath, onActivate, onClose, onUpdate, 
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-ck-bg">
-      <div role="tablist" aria-label="Open files" className="flex shrink-0 overflow-x-auto border-b border-ck-border bg-ck-surface">
-        {files.map((f) => {
-          const dirty = isDirty(f);
-          const isActive = f.path === activePath;
-          return (
-            <div key={f.path} className={`group flex shrink-0 items-center gap-2 border-r border-ck-border px-3 py-2 text-sm ${isActive ? "bg-ck-bg text-ck-text" : "text-ck-muted hover:text-ck-text"}`}>
-              <button role="tab" aria-selected={isActive} onClick={() => onActivate(f.path)} title={f.path} className="max-w-[12rem] truncate">
-                {f.name}
-              </button>
-              {dirty && <span aria-label="Unsaved changes" title="Unsaved changes" className="h-2 w-2 rounded-full bg-ck-amber" />}
-              <button onClick={() => requestClose(f)} aria-label={`Close ${f.name}`} className="rounded px-1 text-ck-muted transition hover:bg-ck-raised hover:text-ck-text">×</button>
-            </div>
-          );
-        })}
+      <div role="tablist" aria-label="Open files" className="scrollbar-thin flex shrink-0 items-center overflow-x-auto border-b border-ck-border bg-ck-surface">
+        <div className="flex min-w-0 flex-1">
+          {files.map((f) => {
+            const dirty = isDirty(f);
+            const isActive = f.path === activePath;
+            return (
+              <div key={f.path} className={`group flex shrink-0 items-center gap-2 border-r border-ck-border px-3 py-2 text-sm ${isActive ? "bg-ck-bg text-ck-text" : "text-ck-muted hover:text-ck-text"}`}>
+                <button role="tab" aria-selected={isActive} onClick={() => onActivate(f.path)} title={f.path} className="max-w-[12rem] truncate">
+                  {f.name}
+                </button>
+                {dirty && <span aria-label="Unsaved changes" title="Unsaved changes" className="h-2 w-2 rounded-full bg-ck-amber" />}
+                <button onClick={() => requestClose(f)} aria-label={`Close ${f.name}`} className="rounded px-1 text-ck-muted transition hover:bg-ck-raised hover:text-ck-text">×</button>
+              </div>
+            );
+          })}
+        </div>
+        <button
+          onClick={() => onModeChange(mode === "fullscreen" ? "preview" : "fullscreen")}
+          aria-pressed={mode === "fullscreen"}
+          aria-label={mode === "fullscreen" ? "Exit fullscreen" : "Open fullscreen"}
+          title={mode === "fullscreen" ? "Exit fullscreen" : "Open fullscreen"}
+          className="mx-2 shrink-0 rounded-lg border border-ck-border px-2 py-1 text-xs text-ck-muted transition hover:bg-ck-raised hover:text-ck-text"
+        >
+          {mode === "fullscreen" ? "⤓ Preview" : "⤢ Fullscreen"}
+        </button>
       </div>
 
       {active ? (
