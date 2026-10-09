@@ -29,6 +29,16 @@ describe("History", () => {
     }
   });
 
+  it("renders separate CPU and memory charts side by side", async () => {
+    const f = mockApi({ "/metrics?": () => json({ from: 0, to: 1, points }) });
+    render(<History />);
+    await waitFor(() => expect(f).toHaveBeenCalled());
+    expect(await screen.findByText("CPU usage")).toBeInTheDocument();
+    expect(screen.getByText("Memory usage")).toBeInTheDocument();
+    expect(screen.getByTestId("chart-cpuPct")).toBeInTheDocument();
+    expect(screen.getByTestId("chart-memPct")).toBeInTheDocument();
+  });
+
   it("requests a new range when a preset is chosen", async () => {
     const f = mockApi({ "/metrics?": () => json({ from: 0, to: 1, points }) });
     render(<History />);
