@@ -3,6 +3,7 @@ import { LoginScreen } from "./components/LoginScreen";
 import { Shell } from "./components/Shell";
 import { useAuth } from "./hooks";
 import { Dashboard } from "./pages/Dashboard";
+import { Files } from "./pages/Files";
 import { History } from "./pages/History";
 import { Settings } from "./pages/Settings";
 
@@ -29,6 +30,7 @@ export function App() {
             <Route element={<Shell user={state.user} onLogout={logout} />}>
               <Route index element={<Dashboard />} />
               <Route path="history" element={<History />} />
+              <Route path="files" element={<Files />} />
               <Route path="settings" element={<Settings />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
