@@ -24,7 +24,7 @@ describe("History", () => {
     const r = lastRange(f);
     expect(Math.abs(r.to - r.from - 86_400_000)).toBeLessThan(1000);
     expect(screen.getByRole("button", { name: "24 hours" })).toHaveAttribute("aria-pressed", "true");
-    for (const l of ["10 min", "30 min", "1 hour", "6 hours", "12 hours", "3 days", "7 days"]) {
+    for (const l of ["10 min", "30 min", "1 hour", "6 hours", "12 hours", "3 days", "7 days", "30 days", "90 days"]) {
       expect(screen.getByRole("button", { name: l })).toBeInTheDocument();
     }
   });
@@ -72,34 +72,55 @@ describe("History", () => {
     expect(screen.getByRole("button", { name: "24 hours" })).toHaveAttribute("aria-pressed", "false");
   });
 
+  it("keeps the custom range collapsed until the Custom button is used", async () => {
+    const f = mockApi({ "/metrics?": () => json({ from: 0, to: 1, points }) });
+    render(<History />);
+    await waitFor(() => expect(f).toHaveBeenCalled());
+    const toggle = screen.getByRole("button", { name: /custom/i });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByLabelText("From")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Apply" })).toBeNull();
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByLabelText("From")).toBeInTheDocument();
+    expect(screen.getByLabelText("To")).toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    expect(screen.queryByLabelText("From")).toBeNull();
+  });
+
   it("applies a valid custom range and rejects an invalid one", async () => {
     const f = mockApi({ "/metrics?": () => json({ from: 0, to: 1, points }) });
     render(<History />);
     await waitFor(() => expect(f).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole("button", { name: /custom/i }));
     const [from, to] = screen.getAllByDisplayValue(/^\d{4}-\d{2}-\d{2}T/) as HTMLInputElement[];
 
     fireEvent.change(from, { target: { value: "2026-10-08T10:00" } });
     fireEvent.change(to, { target: { value: "2026-10-08T09:00" } });
-    fireEvent.click(screen.getByRole("button", { name: /apply custom/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(/before end/i);
 
     fireEvent.change(to, { target: { value: "2026-10-08T12:00" } });
-    fireEvent.click(screen.getByRole("button", { name: /apply custom/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
     await waitFor(() => {
       const r = lastRange(f);
       expect(r.to - r.from).toBe(2 * 3_600_000);
     });
     expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.getByRole("button", { name: "24 hours" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: /custom/i })).toHaveClass("bg-ck-accent"); // Custom shows as the active range
   });
 
   it("rejects blank custom inputs", async () => {
     const f = mockApi({ "/metrics?": () => json({ from: 0, to: 1, points }) });
     render(<History />);
     await waitFor(() => expect(f).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole("button", { name: /custom/i }));
     const [from] = screen.getAllByDisplayValue(/^\d{4}-\d{2}-\d{2}T/) as HTMLInputElement[];
     fireEvent.change(from, { target: { value: "" } });
-    fireEvent.click(screen.getByRole("button", { name: /apply custom/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(/both a start and end/i);
   });
 
@@ -110,7 +131,8 @@ describe("History", () => {
     fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
     await waitFor(() => expect(f.mock.calls.length).toBeGreaterThanOrEqual(2));
 
-    fireEvent.click(screen.getByRole("button", { name: /apply custom/i }));
+    fireEvent.click(screen.getByRole("button", { name: /custom/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
     await waitFor(() => expect(f.mock.calls.length).toBeGreaterThanOrEqual(3));
     const before = f.mock.calls.length;
     fireEvent.click(screen.getByRole("button", { name: "Refresh" }));

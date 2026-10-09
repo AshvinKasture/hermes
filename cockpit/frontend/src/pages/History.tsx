@@ -15,7 +15,7 @@ type RamMode = "percent" | "value";
 export function History() {
   const [presetId, setPresetId] = useState<string | null>(DEFAULT_PRESET);
   const [custom, setCustom] = useState<Range | null>(null);
-  const customOpen = true;
+  const [customOpen, setCustomOpen] = useState(false);
   const [tick, setTick] = useState(0); // bumps "now" for presets on refresh
   const [customError, setCustomError] = useState<string | null>(null);
   const [ramMode, setRamMode] = useState<RamMode>("percent");
@@ -91,6 +91,14 @@ export function History() {
               {p.label}
             </button>
           ))}
+          <button
+            onClick={() => setCustomOpen((o) => !o)}
+            aria-expanded={customOpen}
+            aria-controls="custom-range"
+            className={`${pill(customActive)} flex items-center gap-1.5`}
+          >
+            Custom <span aria-hidden className={`text-xs transition-transform ${customOpen ? "rotate-180" : ""}`}>▾</span>
+          </button>
           <button onClick={refresh} className="ml-auto rounded-lg border border-ck-border px-3 py-1.5 text-sm text-ck-muted transition hover:text-ck-text">
             Refresh
           </button>
@@ -117,7 +125,7 @@ export function History() {
               />
             </label>
             <button onClick={applyCustom} className="rounded-lg border border-ck-accent/50 px-3 py-1.5 text-sm text-ck-accent transition hover:bg-ck-accent/10">
-              Apply custom range
+              Apply
             </button>
             {customError && <p role="alert" className="text-sm text-ck-red">{customError}</p>}
           </div>
