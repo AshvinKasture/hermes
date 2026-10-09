@@ -45,6 +45,7 @@ export const PRESETS: RangePreset[] = [
   { id: "3d", label: "3 days", ms: 3 * DAY },
   { id: "7d", label: "7 days", ms: 7 * DAY },
   { id: "30d", label: "30 days", ms: 30 * DAY },
+  { id: "90d", label: "90 days", ms: 90 * DAY },
 ];
 export const DEFAULT_PRESET = "24h";
 

@@ -26,8 +26,9 @@ describe("format", () => {
   });
 
   it("includes every requested preset with 24h available", () => {
-    expect(PRESETS.map((p) => p.id)).toEqual(["10m", "30m", "1h", "6h", "12h", "24h", "3d", "7d", "30d"]);
+    expect(PRESETS.map((p) => p.id)).toEqual(["10m", "30m", "1h", "6h", "12h", "24h", "3d", "7d", "30d", "90d"]);
     expect(PRESETS.find((p) => p.id === "24h")?.ms).toBe(86_400_000);
+    expect(PRESETS.find((p) => p.id === "90d")?.ms).toBe(90 * 86_400_000);
   });
 
   it("formats ticks by span and round-trips local datetime inputs", () => {
