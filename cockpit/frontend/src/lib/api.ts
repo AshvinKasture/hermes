@@ -1,5 +1,5 @@
 // BASE_URL is "/cockpit/" in production (vite `base`), so all calls stay under the prefix.
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+export const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export interface Me {
   name: string;
@@ -10,7 +10,8 @@ export interface Me {
 export class ApiError extends Error {
   constructor(
     public status: number,
-    message: string
+    message: string,
+    public code?: string
   ) {
     super(message);
   }
@@ -27,8 +28,8 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     headers: { "content-type": "application/json", ...(init.headers ?? {}) },
   });
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}) as { error?: string });
-    throw new ApiError(res.status, (body as { error?: string }).error ?? res.statusText);
+    const body = (await res.json().catch(() => ({}))) as { error?: string; code?: string };
+    throw new ApiError(res.status, body.error ?? res.statusText, body.code);
   }
   return (await res.json()) as T;
 }
