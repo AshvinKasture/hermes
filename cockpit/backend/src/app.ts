@@ -24,13 +24,35 @@ export interface AppDeps {
   fileService?: FileService;
 }
 
+/** The session + passport middleware stack, needed by both the HTTP app and the terminal's
+ *  WebSocket upgrade (which never goes through Express's normal request pipeline). */
+export function buildAuthMiddleware(config: Config, store: session.Store) {
+  const cookiePath = new URL(config.publicUrl).pathname || "/";
+  const isProd = config.nodeEnv === "production";
+  setupPassport(config);
+  return {
+    cookiePath,
+    stack: [
+      session({
+        name: "cockpit.sid",
+        secret: config.sessionSecret,
+        store,
+        resave: false,
+        saveUninitialized: false,
+        cookie: { secure: isProd, httpOnly: true, sameSite: "lax", path: cookiePath, maxAge: SESSION_MAX_AGE_MS },
+      }),
+      passport.initialize(),
+      passport.session(),
+    ],
+  };
+}
+
 export function createApp(config: Config, deps: AppDeps): Express {
   const store = deps.sessionStore ?? new SqliteSessionStore(config.sessionDbPath);
   const collector = deps.collector ?? new MetricsCollector();
   const files = deps.fileService ?? new FileService(config.fs);
   const app = express();
-  const isProd = config.nodeEnv === "production";
-  const cookiePath = new URL(config.publicUrl).pathname || "/";
+  const { cookiePath, stack } = buildAuthMiddleware(config, store);
 
   app.disable("x-powered-by");
   app.set("trust proxy", 1); // Caddy sits in front
@@ -46,26 +68,8 @@ export function createApp(config: Config, deps: AppDeps): Express {
       },
     })
   );
-  app.use(
-    session({
-      name: "cockpit.sid",
-      secret: config.sessionSecret,
-      store,
-      resave: false,
-      saveUninitialized: false,
-      cookie: {
-        secure: isProd,
-        httpOnly: true,
-        sameSite: "lax",
-        path: cookiePath,
-        maxAge: SESSION_MAX_AGE_MS,
-      },
-    })
-  );
+  stack.forEach((mw) => app.use(mw));
 
-  setupPassport(config);
-  app.use(passport.initialize());
-  app.use(passport.session());
   const smallJson = express.json({ limit: "1mb" });
   // The file-save route parses its own (larger) body, so skip it here.
   app.use((req, res, next) => (req.path.endsWith("/api/fs/write") ? next() : smallJson(req, res, next)));

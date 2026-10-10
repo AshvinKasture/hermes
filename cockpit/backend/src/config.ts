@@ -10,6 +10,7 @@ export interface Config {
   allowedEmail: string;
   frontendDist: string | undefined;
   fs: { root: string; home: string; maxEditBytes: number; maxUploadBytes: number };
+  terminal: { host: string; port: number; user: string; idleTimeoutMs: number };
 }
 
 function intEnv(env: NodeJS.ProcessEnv, name: string, fallback: number): number {
@@ -63,6 +64,14 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       home: (env.FS_HOME || "/home/ashvin").replace(/\/+$/, "") || "/home/ashvin",
       maxEditBytes: intEnv(env, "FS_MAX_EDIT_BYTES", 5 * 1024 * 1024),
       maxUploadBytes: intEnv(env, "FS_MAX_UPLOAD_BYTES", 200 * 1024 * 1024),
+    },
+    terminal: {
+      // The container reaches the host's own sshd to get a real login shell as ashvin.
+      // host.docker.internal is mapped to the bridge gateway via extra_hosts in compose.
+      host: env.TERMINAL_SSH_HOST || "host.docker.internal",
+      port: intEnv(env, "TERMINAL_SSH_PORT", 22),
+      user: env.TERMINAL_SSH_USER || "ashvin",
+      idleTimeoutMs: intEnv(env, "TERMINAL_IDLE_TIMEOUT_MS", 15 * 60 * 1000),
     },
   };
 }

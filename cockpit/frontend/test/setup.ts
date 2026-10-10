@@ -20,6 +20,16 @@ beforeEach(() => {
   window.history.pushState({}, "", "/cockpit/");
 });
 
+// jsdom has no ResizeObserver; the Terminal page uses one to re-fit xterm.js on panel resize.
+if (typeof window.ResizeObserver === "undefined") {
+  class StubResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  Object.defineProperty(window, "ResizeObserver", { value: StubResizeObserver, configurable: true });
+}
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();

@@ -6,6 +6,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { Files } from "./pages/Files";
 import { History } from "./pages/History";
 import { Settings } from "./pages/Settings";
+import { Terminal } from "./pages/Terminal";
 
 export function App() {
   const { state, logout } = useAuth();
@@ -31,6 +32,7 @@ export function App() {
               <Route index element={<Dashboard />} />
               <Route path="history" element={<History />} />
               <Route path="files" element={<Files />} />
+              <Route path="terminal" element={<Terminal />} />
               <Route path="settings" element={<Settings />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>

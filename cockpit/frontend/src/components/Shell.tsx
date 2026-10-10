@@ -7,6 +7,7 @@ const NAV = [
   { to: "/", label: "Dashboard", icon: "▦", end: true },
   { to: "/history", label: "History", icon: "↗", end: false },
   { to: "/files", label: "Files", icon: "▤", end: false },
+  { to: "/terminal", label: "Terminal", icon: "❯_", end: false },
   { to: "/settings", label: "Settings", icon: "⚙", end: false },
 ];
 

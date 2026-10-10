@@ -8,6 +8,11 @@ services:
     ports:
       # Loopback only: Caddy is the sole public entry point.
       - "127.0.0.1:9200:9200"
+    extra_hosts:
+      # Lets the terminal feature SSH into the host's own sshd as ashvin, to get a real login
+      # shell (the container itself is unprivileged and can't run sudo). On Linux this needs the
+      # special "host-gateway" value; Docker Desktop maps it automatically either way.
+      - "host.docker.internal:host-gateway"
     environment:
       - NODE_ENV=production
       - PORT=9200
