@@ -17,6 +17,7 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
     allowedEmail: "owner@example.com",
     frontendDist: undefined,
     fs: { root: "/", home: "/home/test", maxEditBytes: 1024 * 1024, maxUploadBytes: 4 * 1024 * 1024 },
+    terminal: { host: "127.0.0.1", port: 22, user: "ashvin", idleTimeoutMs: 15 * 60 * 1000 },
     ...overrides,
   };
 }

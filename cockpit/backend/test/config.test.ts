@@ -35,3 +35,19 @@ test("rejects a short session secret in production", () => {
   assert.throws(() => loadConfig({ ...base, NODE_ENV: "production", SESSION_SECRET: "short" }), /32 characters/);
   assert.doesNotThrow(() => loadConfig({ ...base, NODE_ENV: "development", SESSION_SECRET: "short" }));
 });
+
+test("terminal defaults to the host's sshd as ashvin, with a 15 minute idle timeout", () => {
+  const c = loadConfig({ ...base });
+  assert.equal(c.terminal.host, "host.docker.internal");
+  assert.equal(c.terminal.port, 22);
+  assert.equal(c.terminal.user, "ashvin");
+  assert.equal(c.terminal.idleTimeoutMs, 15 * 60 * 1000);
+});
+
+test("terminal settings are overridable via the environment", () => {
+  const c = loadConfig({ ...base, TERMINAL_SSH_HOST: "1.2.3.4", TERMINAL_SSH_PORT: "2222", TERMINAL_SSH_USER: "deploy", TERMINAL_IDLE_TIMEOUT_MS: "60000" });
+  assert.equal(c.terminal.host, "1.2.3.4");
+  assert.equal(c.terminal.port, 2222);
+  assert.equal(c.terminal.user, "deploy");
+  assert.equal(c.terminal.idleTimeoutMs, 60000);
+});
