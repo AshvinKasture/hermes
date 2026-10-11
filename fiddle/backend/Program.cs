@@ -78,64 +78,74 @@ forwardedOptions.KnownNetworks.Clear();
 forwardedOptions.KnownProxies.Clear();
 app.UseForwardedHeaders(forwardedOptions);
 
-app.UseAuthentication();
-app.UseAuthorization();
-
-app.MapControllers();
-
-app.MapGet("/fiddle/api/auth/login", () => Results.Challenge(
-    new Microsoft.AspNetCore.Authentication.AuthenticationProperties { RedirectUri = "/fiddle" },
-    new[] { GoogleDefaults.AuthenticationScheme }));
-
-app.MapPost("/fiddle/api/auth/logout", async context =>
-{
-    await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-    context.Response.StatusCode = 200;
-});
-
-app.MapGet("/fiddle/api/auth/me", (HttpContext context) =>
-{
-    if (context.User.Identity?.IsAuthenticated != true)
-        return Results.Json(new { authenticated = false });
-    var email = context.User.FindFirstValue(ClaimTypes.Email);
-    var name = context.User.FindFirstValue(ClaimTypes.Name);
-    return Results.Json(new { authenticated = true, email, name });
-});
-
-// Serve built frontend (SPA) for everything else under /fiddle
-var fileProvider = Directory.Exists(frontendDist)
+// Serve built frontend assets BEFORE routing/endpoint matching: UseRouting's EndpointRoutingMiddleware
+// matches the request to an endpoint (including our catch-all MapFallback) up front; the static-files
+// middleware then sees "already matched" and skips itself. So static files must run before UseRouting.
+var frontendFileProvider = Directory.Exists(frontendDist)
     ? new Microsoft.Extensions.FileProviders.PhysicalFileProvider(frontendDist)
     : null;
 
-if (fileProvider != null)
+if (frontendFileProvider != null)
 {
     app.UseDefaultFiles(new DefaultFilesOptions
     {
-        FileProvider = fileProvider,
+        FileProvider = frontendFileProvider,
         RequestPath = "/fiddle"
     });
     app.UseStaticFiles(new StaticFileOptions
     {
-        FileProvider = fileProvider,
+        FileProvider = frontendFileProvider,
         RequestPath = "/fiddle"
     });
+}
 
-    app.MapFallback("/fiddle/{**slug}", async context =>
+app.UseRouting();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.UseEndpoints(endpoints =>
+{
+    endpoints.MapControllers();
+
+    endpoints.MapGet("/fiddle/api/auth/login", () => Results.Challenge(
+        new Microsoft.AspNetCore.Authentication.AuthenticationProperties { RedirectUri = "/fiddle" },
+        new[] { GoogleDefaults.AuthenticationScheme }));
+
+    endpoints.MapPost("/fiddle/api/auth/logout", async context =>
+    {
+        await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        context.Response.StatusCode = 200;
+    });
+
+    endpoints.MapGet("/fiddle/api/auth/me", (HttpContext context) =>
     {
         if (context.User.Identity?.IsAuthenticated != true)
-        {
-            await context.ChallengeAsync(GoogleDefaults.AuthenticationScheme,
-                new Microsoft.AspNetCore.Authentication.AuthenticationProperties { RedirectUri = context.Request.Path });
-            return;
-        }
-        context.Response.ContentType = "text/html";
-        var indexFile = fileProvider.GetFileInfo("index.html");
-        if (indexFile.Exists)
-        {
-            await using var stream = indexFile.CreateReadStream();
-            await stream.CopyToAsync(context.Response.Body);
-        }
+            return Results.Json(new { authenticated = false });
+        var email = context.User.FindFirstValue(ClaimTypes.Email);
+        var name = context.User.FindFirstValue(ClaimTypes.Name);
+        return Results.Json(new { authenticated = true, email, name });
     });
-}
+
+    if (frontendFileProvider != null)
+    {
+        endpoints.MapFallback("/fiddle/{**slug}", async context =>
+        {
+            if (context.User.Identity?.IsAuthenticated != true)
+            {
+                await context.ChallengeAsync(GoogleDefaults.AuthenticationScheme,
+                    new Microsoft.AspNetCore.Authentication.AuthenticationProperties { RedirectUri = context.Request.Path });
+                return;
+            }
+            context.Response.ContentType = "text/html";
+            var indexFile = frontendFileProvider.GetFileInfo("index.html");
+            if (indexFile.Exists)
+            {
+                await using var stream = indexFile.CreateReadStream();
+                await stream.CopyToAsync(context.Response.Body);
+            }
+        });
+    }
+});
 
 app.Run();
