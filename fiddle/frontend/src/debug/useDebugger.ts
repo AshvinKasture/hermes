@@ -20,6 +20,14 @@ export interface WatchResult {
   error: boolean
 }
 
+export interface ConsoleEntry {
+  id: number
+  expression: string
+  result: string | null
+  error: boolean
+  pending: boolean
+}
+
 export type DebugStatus = 'idle' | 'starting' | 'running' | 'paused' | 'terminated' | 'error'
 
 export interface UseDebuggerResult {
@@ -34,6 +42,9 @@ export interface UseDebuggerResult {
   watchResults: WatchResult[]
   addWatch: (expression: string) => void
   removeWatch: (expression: string) => void
+  consoleHistory: ConsoleEntry[]
+  evaluateConsole: (expression: string) => void
+  clearConsole: () => void
   toggleBreakpoint: (line: number) => void
   startDebugging: (code: string) => Promise<void>
   continueExec: () => Promise<void>
@@ -53,6 +64,7 @@ export function useDebugger(): UseDebuggerResult {
   const [breakpointLines, setBreakpointLines] = useState<number[]>([])
   const [watchExpressions, setWatchExpressions] = useState<string[]>([])
   const [watchResults, setWatchResults] = useState<WatchResult[]>([])
+  const [consoleHistory, setConsoleHistory] = useState<ConsoleEntry[]>([])
 
   const clientRef = useRef<DapClient | null>(null)
   const threadIdRef = useRef<number | null>(null)
@@ -61,6 +73,7 @@ export function useDebugger(): UseDebuggerResult {
   statusRef.current = status
   const watchExpressionsRef = useRef<string[]>([])
   watchExpressionsRef.current = watchExpressions
+  const consoleIdRef = useRef(0)
 
   const evaluateWatches = useCallback(async (frameId: number | null) => {
     const client = clientRef.current
@@ -99,6 +112,46 @@ export function useDebugger(): UseDebuggerResult {
   const removeWatch = useCallback((expression: string) => {
     setWatchExpressions((prev) => prev.filter((e) => e !== expression))
     setWatchResults((prev) => prev.filter((w) => w.expression !== expression))
+  }, [])
+
+  /** Evaluate a one-off expression/statement in the debug console, DAP's 'repl' evaluate context.
+   * Unlike Watch, this is a fire-once log entry, not a continuously re-evaluated value - and
+   * netcoredbg's evaluator only supports read expressions (variable reads, method calls, property
+   * access) - assignment, void calls and local declarations are NOT supported and will come back
+   * as an error from the debugger, which we display as-is rather than trying to work around it. */
+  const evaluateConsole = useCallback((expression: string) => {
+    const trimmed = expression.trim()
+    if (!trimmed) return
+    const client = clientRef.current
+    const id = ++consoleIdRef.current
+    setConsoleHistory((prev) => [...prev, { id, expression: trimmed, result: null, error: false, pending: true }])
+
+    if (!client || statusRef.current !== 'paused') {
+      setConsoleHistory((prev) =>
+        prev.map((e) => (e.id === id ? { ...e, pending: false, error: true, result: 'Program must be paused at a breakpoint to evaluate.' } : e)),
+      )
+      return
+    }
+
+    client
+      .request('evaluate', { expression: trimmed, frameId: topFrameIdRef.current ?? undefined, context: 'repl' })
+      .then((resp) => {
+        const body = resp.body as Record<string, unknown>
+        setConsoleHistory((prev) =>
+          prev.map((e) => (e.id === id ? { ...e, pending: false, error: false, result: (body?.result as string) ?? '' } : e)),
+        )
+      })
+      .catch((err: unknown) => {
+        setConsoleHistory((prev) =>
+          prev.map((e) =>
+            e.id === id ? { ...e, pending: false, error: true, result: err instanceof Error ? err.message : 'Evaluation failed' } : e,
+          ),
+        )
+      })
+  }, [])
+
+  const clearConsole = useCallback(() => {
+    setConsoleHistory([])
   }, [])
 
   const toggleBreakpoint = useCallback((line: number) => {
@@ -158,6 +211,7 @@ export function useDebugger(): UseDebuggerResult {
       setStackFrames([])
       setVariables([])
       setCurrentLine(null)
+      setConsoleHistory([])
 
       const client = new DapClient()
       clientRef.current = client
@@ -282,6 +336,9 @@ export function useDebugger(): UseDebuggerResult {
     watchResults,
     addWatch,
     removeWatch,
+    consoleHistory,
+    evaluateConsole,
+    clearConsole,
     toggleBreakpoint,
     startDebugging,
     continueExec,

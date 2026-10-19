@@ -40,6 +40,8 @@ function App() {
   const [me, setMe] = useState<Me | null>(null)
   const [mode, setMode] = useState<Mode>('run')
   const [watchInput, setWatchInput] = useState('')
+  const [consoleInput, setConsoleInput] = useState('')
+  const consoleEndRef = useRef<HTMLDivElement | null>(null)
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null)
   const monacoRef = useRef<typeof monacoEditor | null>(null)
   const decorationsRef = useRef<string[]>([])
@@ -162,6 +164,11 @@ function App() {
   const startDebug = useCallback(() => {
     void dbg.startDebugging(codeRef.current)
   }, [dbg])
+
+  // Auto-scroll the debug console to the latest entry.
+  useEffect(() => {
+    consoleEndRef.current?.scrollIntoView({ block: 'end' })
+  }, [dbg.consoleHistory])
 
   if (me && !me.authenticated) {
     return (
@@ -327,6 +334,49 @@ function App() {
                   <span className="output-placeholder">Click a line's left margin to set a breakpoint, then Start Debugging.</span>
                 )}
               </pre>
+            </div>
+            <div className="debug-section debug-console-section">
+              <div className="debug-section-header console-header">
+                <span>Debug Console</span>
+                <button className="console-clear-btn" onClick={dbg.clearConsole} title="Clear console">
+                  Clear
+                </button>
+              </div>
+              <div className="console-body">
+                {dbg.consoleHistory.length === 0 && (
+                  <span className="output-placeholder">
+                    Evaluate expressions while paused (e.g. <code>x</code>, <code>x + y</code>, <code>Square(x)</code>). Assignment
+                    and void calls aren't supported by the debugger.
+                  </span>
+                )}
+                {dbg.consoleHistory.map((entry) => (
+                  <div key={entry.id} className="console-entry">
+                    <div className="console-expr">&gt; {entry.expression}</div>
+                    <div className={entry.pending ? 'console-result console-pending' : entry.error ? 'console-result console-result-error' : 'console-result'}>
+                      {entry.pending ? '…' : entry.result}
+                    </div>
+                  </div>
+                ))}
+                <div ref={consoleEndRef} />
+              </div>
+              <form
+                className="console-input-row"
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  dbg.evaluateConsole(consoleInput)
+                  setConsoleInput('')
+                }}
+              >
+                <span className="console-prompt">&gt;</span>
+                <input
+                  className="console-input"
+                  type="text"
+                  placeholder={dbg.status === 'paused' ? 'Evaluate an expression…' : 'Pause at a breakpoint to evaluate'}
+                  value={consoleInput}
+                  onChange={(e) => setConsoleInput(e.target.value)}
+                  disabled={dbg.status !== 'paused'}
+                />
+              </form>
             </div>
           </div>
         )}
