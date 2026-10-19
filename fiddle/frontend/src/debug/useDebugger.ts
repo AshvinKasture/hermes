@@ -76,15 +76,22 @@ export function useDebugger(): UseDebuggerResult {
   const consoleIdRef = useRef(0)
 
   /**
-   * netcoredbg has a known evaluator bug (Samsung/netcoredbg#246/#248): bare property access on a
-   * local (`foo.Length`, `foo.HasValue`) fails with "does not exist in the current context", even
-   * though the property genuinely exists - but calling the compiler-generated getter directly
-   * (`foo.get_Length()`) works fine, since method calls go through a different code path. We
-   * retry failed evaluations once with the last `.Identifier` rewritten to `.get_Identifier()`
-   * before giving up, so the common case (string/array .Length, Nullable<T>.HasValue, any
-   * auto-property) works transparently without the user needing to know the workaround.
+   * netcoredbg has two known evaluator bugs that surface as generic-looking errors:
+   *
+   * 1. Samsung/netcoredbg#246/#248: bare property access on a local (`foo.Length`,
+   *    `foo.HasValue`) fails with "does not exist in the current context", even though the
+   *    property genuinely exists - but calling the compiler-generated getter directly
+   *    (`foo.get_Length()`) works, since method calls go through a different code path.
+   * 2. String indexing (`str[0]`) fails with the opaque HRESULT "error: 0x80070057" - array
+   *    indexing (`arr[0]`) is unaffected, only string's indexer specifically. The workaround is
+   *    the same idea: call the compiler-generated indexer getter directly, `str.get_Chars(0)`.
+   *
+   * We retry a failed evaluation once, rewriting whichever pattern matches, before giving up -
+   * so both work transparently without the user needing to know the debugger's quirks. Since we
+   * can't know types ahead of time, the indexer rewrite is tried for ANY `expr[args]` on an
+   * 0x80070057 failure (harmless if wrong - it'll just fail again with the original message).
    */
-  async function evaluateWithPropertyFallback(
+  async function evaluateWithKnownBugFallback(
     client: DapClient,
     expression: string,
     frameId: number | undefined,
@@ -95,12 +102,21 @@ export function useDebugger(): UseDebuggerResult {
       return ((resp.body as Record<string, unknown>)?.result as string) ?? ''
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
+
       const propertyMatch = /\.([A-Za-z_][A-Za-z0-9_]*)$/.exec(expression)
       if (propertyMatch && message.includes('does not exist in the current context')) {
         const rewritten = `${expression.slice(0, propertyMatch.index)}.get_${propertyMatch[1]}()`
         const resp = await client.request('evaluate', { expression: rewritten, frameId, context })
         return ((resp.body as Record<string, unknown>)?.result as string) ?? ''
       }
+
+      const indexerMatch = /\[(.+)\]$/.exec(expression)
+      if (indexerMatch && message.includes('0x80070057')) {
+        const rewritten = `${expression.slice(0, indexerMatch.index)}.get_Chars(${indexerMatch[1]})`
+        const resp = await client.request('evaluate', { expression: rewritten, frameId, context })
+        return ((resp.body as Record<string, unknown>)?.result as string) ?? ''
+      }
+
       throw err
     }
   }
@@ -115,7 +131,7 @@ export function useDebugger(): UseDebuggerResult {
     const results = await Promise.all(
       expressions.map(async (expression): Promise<WatchResult> => {
         try {
-          const value = await evaluateWithPropertyFallback(client, expression, frameId ?? undefined, 'watch')
+          const value = await evaluateWithKnownBugFallback(client, expression, frameId ?? undefined, 'watch')
           return { expression, value, error: false }
         } catch (err) {
           return { expression, value: err instanceof Error ? err.message : 'evaluation failed', error: true }
@@ -162,30 +178,12 @@ export function useDebugger(): UseDebuggerResult {
       return
     }
 
-    client
-      .request('evaluate', { expression: trimmed, frameId: topFrameIdRef.current ?? undefined, context: 'repl' })
-      .then((resp) => {
-        const body = resp.body as Record<string, unknown>
-        setConsoleHistory((prev) =>
-          prev.map((e) => (e.id === id ? { ...e, pending: false, error: false, result: (body?.result as string) ?? '' } : e)),
-        )
+    evaluateWithKnownBugFallback(client, trimmed, topFrameIdRef.current ?? undefined, 'repl')
+      .then((value) => {
+        setConsoleHistory((prev) => prev.map((e) => (e.id === id ? { ...e, pending: false, error: false, result: value } : e)))
       })
-      .catch(async (err: unknown) => {
+      .catch((err: unknown) => {
         const message = err instanceof Error ? err.message : String(err)
-        const propertyMatch = /\.([A-Za-z_][A-Za-z0-9_]*)$/.exec(trimmed)
-        if (propertyMatch && message.includes('does not exist in the current context')) {
-          const rewritten = `${trimmed.slice(0, propertyMatch.index)}.get_${propertyMatch[1]}()`
-          try {
-            const resp = await client.request('evaluate', { expression: rewritten, frameId: topFrameIdRef.current ?? undefined, context: 'repl' })
-            const body = resp.body as Record<string, unknown>
-            setConsoleHistory((prev) =>
-              prev.map((e) => (e.id === id ? { ...e, pending: false, error: false, result: (body?.result as string) ?? '' } : e)),
-            )
-            return
-          } catch {
-            // fall through to show the original error below
-          }
-        }
         setConsoleHistory((prev) => prev.map((e) => (e.id === id ? { ...e, pending: false, error: true, result: message } : e)))
       })
   }, [])
