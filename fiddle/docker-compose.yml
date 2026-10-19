@@ -11,7 +11,7 @@ services:
       - ALLOWED_EMAIL=${ALLOWED_EMAIL:-ashvin.kasture12345@gmail.com}
       - PUBLIC_URL=https://hermes.ashtech.dev/fiddle
     tmpfs:
-      - /tmp/fiddle-runs:size=256m,uid=1501,gid=1501
+      - /tmp/fiddle-runs:size=256m,uid=1501,gid=1501,exec
     networks:
       - fiddle-net
 
