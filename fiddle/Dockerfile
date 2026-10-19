@@ -42,7 +42,7 @@ COPY --from=backend-builder /app/backend/run-template ./run-template
 
 # Pre-seed the NuGet package cache + obj/bin for the run-template so first real user run is fast.
 COPY --from=backend-builder /root/.nuget/packages /home/fiddleapp/.nuget/packages
-RUN mkdir -p /tmp/fiddle-runs && chown -R fiddleapp:fiddleapp /app /tmp/fiddle-runs /home/fiddleapp
+RUN mkdir -p /tmp/fiddle-runs /data/saved-programs && chown -R fiddleapp:fiddleapp /app /tmp/fiddle-runs /data /home/fiddleapp
 
 USER fiddleapp
 ENV HOME=/home/fiddleapp
@@ -52,6 +52,7 @@ ENV FRONTEND_DIST=/app/frontend/dist
 ENV RUN_TEMPLATE_DIR=/app/run-template
 ENV RUN_SCRATCH_DIR=/tmp/fiddle-runs
 ENV NETCOREDBG_PATH=/opt/netcoredbg-dist/netcoredbg/netcoredbg
+ENV SAVED_PROGRAMS_DIR=/data/saved-programs
 ENV ASPNETCORE_URLS=http://+:9121
 
 EXPOSE 9121

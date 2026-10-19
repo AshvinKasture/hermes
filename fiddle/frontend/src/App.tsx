@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Editor, { type OnMount } from '@monaco-editor/react'
 import type * as monacoEditor from 'monaco-editor'
 import { useDebugger } from './debug/useDebugger'
+import { SaveModal, OpenModal } from './ProgramModals'
+import { programsApi } from './programsApi'
 import './App.css'
 
 const DEFAULT_CODE = `using System;
@@ -41,6 +43,10 @@ function App() {
   const [mode, setMode] = useState<Mode>('run')
   const [watchInput, setWatchInput] = useState('')
   const [consoleInput, setConsoleInput] = useState('')
+  const [currentProgramName, setCurrentProgramName] = useState<string | null>(null)
+  const [showSaveModal, setShowSaveModal] = useState(false)
+  const [showOpenModal, setShowOpenModal] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<string | null>(null)
   const consoleEndRef = useRef<HTMLDivElement | null>(null)
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null)
   const monacoRef = useRef<typeof monacoEditor | null>(null)
@@ -48,6 +54,8 @@ function App() {
   const hoverDecorationRef = useRef<string[]>([])
   const codeRef = useRef(code)
   codeRef.current = code
+  const currentProgramNameRef = useRef(currentProgramName)
+  currentProgramNameRef.current = currentProgramName
 
   const dbg = useDebugger()
   const dbgRef = useRef(dbg)
@@ -121,6 +129,9 @@ function App() {
     editor.addCommand(monacoNs.KeyMod.CtrlCmd | monacoNs.KeyCode.Enter, () => {
       void runCode()
     })
+    editor.addCommand(monacoNs.KeyMod.CtrlCmd | monacoNs.KeyCode.KeyS, () => {
+      setShowSaveModal(true)
+    })
     // F10 step over, F11 step into, Shift+F11 step out - standard debugger shortcuts
     // (VS/VS Code convention). Only act while actually paused; otherwise a no-op.
     editor.addCommand(monacoNs.KeyCode.F10, () => {
@@ -165,6 +176,51 @@ function App() {
     void dbg.startDebugging(codeRef.current)
   }, [dbg])
 
+  // Flash a transient "Saved" confirmation next to the title, auto-clearing after a couple seconds.
+  const flashSaveStatus = useCallback((message: string) => {
+    setSaveStatus(message)
+    setTimeout(() => setSaveStatus((cur) => (cur === message ? null : cur)), 2500)
+  }, [])
+
+  const saveProgram = useCallback(
+    async (name: string) => {
+      await programsApi.save(name, codeRef.current)
+      setCurrentProgramName(name)
+      flashSaveStatus(`Saved "${name}"`)
+    },
+    [flashSaveStatus],
+  )
+
+  // Ctrl+S opens the Save modal pre-filled with the current program's name if there is one
+  // (so a quick re-save doesn't require retyping); a brand-new/unsaved program still prompts
+  // for a name the first time, matching most editors' "Save" vs "Save As" convention collapsed
+  // into one modal since the user asked for a simple prompt-for-name flow.
+  const openSaveModal = useCallback(() => {
+    setShowSaveModal(true)
+  }, [])
+
+  const openProgram = useCallback(async (name: string) => {
+    try {
+      const program = await programsApi.get(name)
+      setCode(program.code)
+      setCurrentProgramName(program.name)
+      setShowOpenModal(false)
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : 'Failed to open program')
+    }
+  }, [])
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault()
+        openSaveModal()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [openSaveModal])
+
   // Auto-scroll the debug console to the latest entry.
   useEffect(() => {
     consoleEndRef.current?.scrollIntoView({ block: 'end' })
@@ -187,7 +243,10 @@ function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <h1>C# Fiddle</h1>
+        <h1>
+          C# Fiddle
+          {currentProgramName && <span className="current-program-name"> — {currentProgramName}</span>}
+        </h1>
         <div className="mode-toggle">
           <button className={mode === 'run' ? 'mode-btn active' : 'mode-btn'} onClick={() => setMode('run')}>
             Run
@@ -198,6 +257,15 @@ function App() {
         </div>
         <div className="topbar-right">
           {me?.email && <span className="user-email">{me.email}</span>}
+          {saveStatus && <span className="save-status">{saveStatus}</span>}
+          <div className="file-actions">
+            <button className="file-btn" onClick={() => setShowOpenModal(true)} title="Open a saved program">
+              Open
+            </button>
+            <button className="file-btn" onClick={openSaveModal} title="Save (Ctrl+S)">
+              Save
+            </button>
+          </div>
           {mode === 'run' && (
             <button className="run-btn" onClick={() => void runCode()} disabled={running}>
               {running ? 'Running…' : 'Run ▶ (Ctrl+Enter)'}
@@ -381,6 +449,10 @@ function App() {
           </div>
         )}
       </main>
+      {showSaveModal && (
+        <SaveModal defaultName={currentProgramNameRef.current ?? ''} onSave={saveProgram} onClose={() => setShowSaveModal(false)} />
+      )}
+      {showOpenModal && <OpenModal onOpen={(name) => void openProgram(name)} onClose={() => setShowOpenModal(false)} />}
     </div>
   )
 }

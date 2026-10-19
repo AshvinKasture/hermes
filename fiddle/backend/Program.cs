@@ -17,6 +17,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton<CodeRunnerService>();
 builder.Services.AddSingleton<DebugSessionService>();
+builder.Services.AddSingleton<SavedProgramsService>();
 
 builder.Services.AddAuthentication(options =>
 {
