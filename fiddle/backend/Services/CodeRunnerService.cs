@@ -98,8 +98,32 @@ public class CodeRunnerService
     {
         Directory.CreateDirectory(destDir);
         foreach (var dirPath in Directory.GetDirectories(sourceDir, "*", SearchOption.AllDirectories))
+        {
+            // Skip prior build output - copying bin/obj from the template let a stale compiled
+            // binary survive into a new run and get re-executed without rebuilding, because the
+            // fresh Program.cs write didn't reliably advance MSBuild's up-to-date check in time.
+            var name = Path.GetFileName(dirPath);
+            if (name is "bin" or "obj") continue;
+            if (dirPath.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}") ||
+                dirPath.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")) continue;
             Directory.CreateDirectory(dirPath.Replace(sourceDir, destDir));
+        }
         foreach (var filePath in Directory.GetFiles(sourceDir, "*", SearchOption.AllDirectories))
+        {
+            var relative = Path.GetRelativePath(sourceDir, filePath);
+            var topDir = relative.Split(Path.DirectorySeparatorChar)[0];
+            if (topDir is "bin" or "obj") continue;
             File.Copy(filePath, filePath.Replace(sourceDir, destDir), overwrite: true);
+        }
+        // Reuse the template's restored NuGet assets (project.assets.json etc.) so the build step
+        // below only needs `--no-restore`, without resurrecting old compiled output.
+        var srcObj = Path.Combine(sourceDir, "obj");
+        var destObj = Path.Combine(destDir, "obj");
+        if (Directory.Exists(srcObj))
+        {
+            Directory.CreateDirectory(destObj);
+            foreach (var f in Directory.GetFiles(srcObj))
+                File.Copy(f, Path.Combine(destObj, Path.GetFileName(f)), overwrite: true);
+        }
     }
 }
