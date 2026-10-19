@@ -14,6 +14,12 @@ export interface Variable {
   variablesReference: number
 }
 
+export interface WatchResult {
+  expression: string
+  value: string
+  error: boolean
+}
+
 export type DebugStatus = 'idle' | 'starting' | 'running' | 'paused' | 'terminated' | 'error'
 
 export interface UseDebuggerResult {
@@ -24,6 +30,10 @@ export interface UseDebuggerResult {
   variables: Variable[]
   debuggerOutput: string[]
   breakpointLines: number[]
+  watchExpressions: string[]
+  watchResults: WatchResult[]
+  addWatch: (expression: string) => void
+  removeWatch: (expression: string) => void
   toggleBreakpoint: (line: number) => void
   startDebugging: (code: string) => Promise<void>
   continueExec: () => Promise<void>
@@ -41,51 +51,104 @@ export function useDebugger(): UseDebuggerResult {
   const [variables, setVariables] = useState<Variable[]>([])
   const [debuggerOutput, setDebuggerOutput] = useState<string[]>([])
   const [breakpointLines, setBreakpointLines] = useState<number[]>([])
+  const [watchExpressions, setWatchExpressions] = useState<string[]>([])
+  const [watchResults, setWatchResults] = useState<WatchResult[]>([])
 
   const clientRef = useRef<DapClient | null>(null)
   const threadIdRef = useRef<number | null>(null)
+  const topFrameIdRef = useRef<number | null>(null)
+  const statusRef = useRef<DebugStatus>(status)
+  statusRef.current = status
+  const watchExpressionsRef = useRef<string[]>([])
+  watchExpressionsRef.current = watchExpressions
+
+  const evaluateWatches = useCallback(async (frameId: number | null) => {
+    const client = clientRef.current
+    const expressions = watchExpressionsRef.current
+    if (!client || expressions.length === 0) {
+      setWatchResults([])
+      return
+    }
+    const results = await Promise.all(
+      expressions.map(async (expression): Promise<WatchResult> => {
+        try {
+          const resp = await client.request('evaluate', { expression, frameId: frameId ?? undefined, context: 'watch' })
+          const body = resp.body as Record<string, unknown>
+          return { expression, value: (body?.result as string) ?? '', error: false }
+        } catch (err) {
+          return { expression, value: err instanceof Error ? err.message : 'evaluation failed', error: true }
+        }
+      }),
+    )
+    setWatchResults(results)
+  }, [])
+
+  const addWatch = useCallback(
+    (expression: string) => {
+      const trimmed = expression.trim()
+      if (!trimmed) return
+      setWatchExpressions((prev) => (prev.includes(trimmed) ? prev : [...prev, trimmed]))
+      // If already paused, evaluate right away instead of waiting for the next step/stopped event.
+      if (statusRef.current === 'paused') {
+        setTimeout(() => void evaluateWatches(topFrameIdRef.current), 0)
+      }
+    },
+    [evaluateWatches],
+  )
+
+  const removeWatch = useCallback((expression: string) => {
+    setWatchExpressions((prev) => prev.filter((e) => e !== expression))
+    setWatchResults((prev) => prev.filter((w) => w.expression !== expression))
+  }, [])
 
   const toggleBreakpoint = useCallback((line: number) => {
     setBreakpointLines((prev) => (prev.includes(line) ? prev.filter((l) => l !== line) : [...prev, line].sort((a, b) => a - b)))
   }, [])
 
-  const loadStackAndVariables = useCallback(async (threadId: number) => {
-    const client = clientRef.current
-    if (!client) return
-    const stackResp = await client.request('stackTrace', { threadId, startFrame: 0, levels: 20 })
-    const frames = ((stackResp.body as Record<string, unknown>)?.stackFrames as Array<Record<string, unknown>>) || []
-    const mapped: StackFrame[] = frames.map((f) => ({
-      id: f.id as number,
-      name: f.name as string,
-      line: f.line as number,
-      column: f.column as number,
-    }))
-    setStackFrames(mapped)
-    setCurrentLine(mapped[0]?.line ?? null)
+  const loadStackAndVariables = useCallback(
+    async (threadId: number) => {
+      const client = clientRef.current
+      if (!client) return
+      const stackResp = await client.request('stackTrace', { threadId, startFrame: 0, levels: 20 })
+      const frames = ((stackResp.body as Record<string, unknown>)?.stackFrames as Array<Record<string, unknown>>) || []
+      const mapped: StackFrame[] = frames.map((f) => ({
+        id: f.id as number,
+        name: f.name as string,
+        line: f.line as number,
+        column: f.column as number,
+      }))
+      setStackFrames(mapped)
+      setCurrentLine(mapped[0]?.line ?? null)
+      const topFrameId = mapped[0]?.id ?? null
+      topFrameIdRef.current = topFrameId
 
-    if (mapped.length === 0) {
-      setVariables([])
-      return
-    }
+      if (mapped.length === 0) {
+        setVariables([])
+        void evaluateWatches(null)
+        return
+      }
 
-    const scopesResp = await client.request('scopes', { frameId: mapped[0].id })
-    const scopes = ((scopesResp.body as Record<string, unknown>)?.scopes as Array<Record<string, unknown>>) || []
-    const localsScope = scopes.find((s) => (s.name as string)?.toLowerCase() === 'locals') ?? scopes[0]
-    if (!localsScope) {
-      setVariables([])
-      return
-    }
+      const scopesResp = await client.request('scopes', { frameId: topFrameId })
+      const scopes = ((scopesResp.body as Record<string, unknown>)?.scopes as Array<Record<string, unknown>>) || []
+      const localsScope = scopes.find((s) => (s.name as string)?.toLowerCase() === 'locals') ?? scopes[0]
+      if (!localsScope) {
+        setVariables([])
+      } else {
+        const varsResp = await client.request('variables', { variablesReference: localsScope.variablesReference })
+        const vars = ((varsResp.body as Record<string, unknown>)?.variables as Array<Record<string, unknown>>) || []
+        setVariables(
+          vars.map((v) => ({
+            name: v.name as string,
+            value: v.value as string,
+            variablesReference: (v.variablesReference as number) ?? 0,
+          })),
+        )
+      }
 
-    const varsResp = await client.request('variables', { variablesReference: localsScope.variablesReference })
-    const vars = ((varsResp.body as Record<string, unknown>)?.variables as Array<Record<string, unknown>>) || []
-    setVariables(
-      vars.map((v) => ({
-        name: v.name as string,
-        value: v.value as string,
-        variablesReference: (v.variablesReference as number) ?? 0,
-      })),
-    )
-  }, [])
+      void evaluateWatches(topFrameId)
+    },
+    [evaluateWatches],
+  )
 
   const startDebugging = useCallback(
     async (code: string) => {
@@ -113,6 +176,8 @@ export function useDebugger(): UseDebuggerResult {
         setStackFrames([])
         setVariables([])
         setCurrentLine(null)
+        setWatchResults([])
+        topFrameIdRef.current = null
       })
       client.on('terminated', () => {
         setStatus('terminated')
@@ -120,6 +185,8 @@ export function useDebugger(): UseDebuggerResult {
         setStackFrames([])
         setVariables([])
         setCurrentLine(null)
+        setWatchResults([])
+        topFrameIdRef.current = null
       })
       client.on('exited', (msg: DapMessage) => {
         const body = msg.body as Record<string, unknown>
@@ -194,11 +261,13 @@ export function useDebugger(): UseDebuggerResult {
     clientRef.current?.close()
     clientRef.current = null
     threadIdRef.current = null
+    topFrameIdRef.current = null
     setStatus('idle')
     setStatusMessage(null)
     setStackFrames([])
     setVariables([])
     setCurrentLine(null)
+    setWatchResults([])
   }, [])
 
   return {
@@ -209,6 +278,10 @@ export function useDebugger(): UseDebuggerResult {
     variables,
     debuggerOutput,
     breakpointLines,
+    watchExpressions,
+    watchResults,
+    addWatch,
+    removeWatch,
     toggleBreakpoint,
     startDebugging,
     continueExec,

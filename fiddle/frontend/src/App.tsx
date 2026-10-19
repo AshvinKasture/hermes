@@ -39,6 +39,7 @@ function App() {
   const [elapsedMs, setElapsedMs] = useState<number | null>(null)
   const [me, setMe] = useState<Me | null>(null)
   const [mode, setMode] = useState<Mode>('run')
+  const [watchInput, setWatchInput] = useState('')
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null)
   const monacoRef = useRef<typeof monacoEditor | null>(null)
   const decorationsRef = useRef<string[]>([])
@@ -275,6 +276,47 @@ function App() {
                     <span className="variable-value">{v.value}</span>
                   </div>
                 ))}
+              </div>
+            </div>
+            <div className="debug-section">
+              <div className="debug-section-header">Watch</div>
+              <div className="debug-section-body">
+                <form
+                  className="watch-input-row"
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    dbg.addWatch(watchInput)
+                    setWatchInput('')
+                  }}
+                >
+                  <input
+                    className="watch-input"
+                    type="text"
+                    placeholder="Add expression (e.g. sum, x + y)"
+                    value={watchInput}
+                    onChange={(e) => setWatchInput(e.target.value)}
+                  />
+                  <button type="submit" className="watch-add-btn" disabled={!watchInput.trim()}>
+                    +
+                  </button>
+                </form>
+                {dbg.watchExpressions.length === 0 && (
+                  <span className="output-placeholder">No watch expressions yet.</span>
+                )}
+                {dbg.watchExpressions.map((expr) => {
+                  const result = dbg.watchResults.find((w) => w.expression === expr)
+                  return (
+                    <div key={expr} className="variable-row watch-row">
+                      <span className="variable-name">{expr}</span>
+                      <span className={result?.error ? 'variable-value watch-error' : 'variable-value'}>
+                        {result ? result.value : dbg.status === 'paused' ? '…' : '—'}
+                      </span>
+                      <button className="watch-remove-btn" onClick={() => dbg.removeWatch(expr)} title="Remove watch">
+                        ×
+                      </button>
+                    </div>
+                  )
+                })}
               </div>
             </div>
             <div className="debug-section">

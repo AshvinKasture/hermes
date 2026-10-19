@@ -288,6 +288,65 @@ body {
   max-height: 200px;
 }
 
+.watch-input-row {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.watch-input {
+  flex: 1;
+  background: #2d2d2d;
+  border: 1px solid #444;
+  color: #e4e4e4;
+  padding: 0.3rem 0.5rem;
+  border-radius: 4px;
+  font-family: 'SF Mono', Consolas, monospace;
+  font-size: 0.8rem;
+}
+
+.watch-input:focus {
+  outline: none;
+  border-color: #0e639c;
+}
+
+.watch-add-btn {
+  background: #0e639c;
+  color: white;
+  border: none;
+  width: 1.8rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.watch-add-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.watch-row {
+  align-items: center;
+}
+
+.watch-remove-btn {
+  background: transparent;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0 0.3rem;
+}
+
+.watch-remove-btn:hover {
+  color: #f48771;
+}
+
+.watch-error {
+  color: #f48771 !important;
+  font-style: italic;
+}
+
 /* Monaco breakpoint gutter + current-line highlight */
 .breakpoint-glyph {
   background: #e51400;
