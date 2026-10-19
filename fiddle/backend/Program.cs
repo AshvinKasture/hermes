@@ -16,6 +16,7 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton<CodeRunnerService>();
+builder.Services.AddSingleton<DebugSessionService>();
 
 builder.Services.AddAuthentication(options =>
 {
@@ -78,6 +79,8 @@ forwardedOptions.KnownNetworks.Clear();
 forwardedOptions.KnownProxies.Clear();
 app.UseForwardedHeaders(forwardedOptions);
 
+app.UseWebSockets();
+
 // Serve built frontend assets BEFORE routing/endpoint matching: UseRouting's EndpointRoutingMiddleware
 // matches the request to an endpoint (including our catch-all MapFallback) up front; the static-files
 // middleware then sees "already matched" and skips itself. So static files must run before UseRouting.
@@ -125,6 +128,16 @@ app.UseEndpoints(endpoints =>
         var email = context.User.FindFirstValue(ClaimTypes.Email);
         var name = context.User.FindFirstValue(ClaimTypes.Name);
         return Results.Json(new { authenticated = true, email, name });
+    });
+
+    endpoints.Map("/fiddle/api/debug", async (HttpContext context, DebugSessionService debugService) =>
+    {
+        if (context.User.Identity?.IsAuthenticated != true)
+        {
+            context.Response.StatusCode = 401;
+            return;
+        }
+        await FiddleApi.DebugWebSocketHandler.HandleAsync(context, debugService);
     });
 
     if (frontendFileProvider != null)
