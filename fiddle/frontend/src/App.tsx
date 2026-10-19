@@ -42,10 +42,13 @@ function App() {
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null)
   const monacoRef = useRef<typeof monacoEditor | null>(null)
   const decorationsRef = useRef<string[]>([])
+  const hoverDecorationRef = useRef<string[]>([])
   const codeRef = useRef(code)
   codeRef.current = code
 
   const dbg = useDebugger()
+  const dbgRef = useRef(dbg)
+  dbgRef.current = dbg
 
   useEffect(() => {
     fetch('/fiddle/api/auth/me')
@@ -115,10 +118,43 @@ function App() {
     editor.addCommand(monacoNs.KeyMod.CtrlCmd | monacoNs.KeyCode.Enter, () => {
       void runCode()
     })
+    // F10 step over, F11 step into, Shift+F11 step out - standard debugger shortcuts
+    // (VS/VS Code convention). Only act while actually paused; otherwise a no-op.
+    editor.addCommand(monacoNs.KeyCode.F10, () => {
+      if (dbgRef.current.status === 'paused') void dbgRef.current.stepOver()
+    })
+    editor.addCommand(monacoNs.KeyCode.F11, () => {
+      if (dbgRef.current.status === 'paused') void dbgRef.current.stepIn()
+    })
+    editor.addCommand(monacoNs.KeyMod.Shift | monacoNs.KeyCode.F11, () => {
+      if (dbgRef.current.status === 'paused') void dbgRef.current.stepOut()
+    })
     editor.onMouseDown((e) => {
       if (e.target.type === monacoNs.editor.MouseTargetType.GUTTER_GLYPH_MARGIN && e.target.position) {
-        dbg.toggleBreakpoint(e.target.position.lineNumber)
+        dbgRef.current.toggleBreakpoint(e.target.position.lineNumber)
       }
+    })
+    // Faded breakpoint-outline preview on hover, so it's clear exactly which line a click
+    // will toggle - the glyph margin is narrow and otherwise hard to aim precisely.
+    editor.onMouseMove((e) => {
+      if (e.target.type === monacoNs.editor.MouseTargetType.GUTTER_GLYPH_MARGIN && e.target.position) {
+        const line = e.target.position.lineNumber
+        if (dbgRef.current.breakpointLines.includes(line)) {
+          hoverDecorationRef.current = editor.deltaDecorations(hoverDecorationRef.current, [])
+          return
+        }
+        hoverDecorationRef.current = editor.deltaDecorations(hoverDecorationRef.current, [
+          {
+            range: new monacoNs.Range(line, 1, line, 1),
+            options: { isWholeLine: false, glyphMarginClassName: 'breakpoint-glyph-hover' },
+          },
+        ])
+      } else {
+        hoverDecorationRef.current = editor.deltaDecorations(hoverDecorationRef.current, [])
+      }
+    })
+    editor.onMouseLeave(() => {
+      hoverDecorationRef.current = editor.deltaDecorations(hoverDecorationRef.current, [])
     })
   }
 
@@ -169,13 +205,13 @@ function App() {
               <button disabled={dbg.status !== 'paused'} onClick={() => void dbg.continueExec()} title="Continue">
                 ▶
               </button>
-              <button disabled={dbg.status !== 'paused'} onClick={() => void dbg.stepOver()} title="Step Over">
+              <button disabled={dbg.status !== 'paused'} onClick={() => void dbg.stepOver()} title="Step Over (F10)">
                 ⤵
               </button>
-              <button disabled={dbg.status !== 'paused'} onClick={() => void dbg.stepIn()} title="Step Into">
+              <button disabled={dbg.status !== 'paused'} onClick={() => void dbg.stepIn()} title="Step Into (F11)">
                 ⤷
               </button>
-              <button disabled={dbg.status !== 'paused'} onClick={() => void dbg.stepOut()} title="Step Out">
+              <button disabled={dbg.status !== 'paused'} onClick={() => void dbg.stepOut()} title="Step Out (Shift+F11)">
                 ⤴
               </button>
               <button onClick={dbg.stopDebugging} title="Stop" className="debug-stop">

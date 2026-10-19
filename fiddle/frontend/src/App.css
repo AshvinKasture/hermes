@@ -298,6 +298,17 @@ body {
   margin-top: 0.3rem;
 }
 
+.breakpoint-glyph-hover {
+  background: transparent;
+  border: 1.5px solid rgba(229, 20, 0, 0.55);
+  border-radius: 50%;
+  width: 0.7rem !important;
+  height: 0.7rem !important;
+  margin-left: 0.3rem;
+  margin-top: 0.3rem;
+  box-sizing: border-box;
+}
+
 .current-line-highlight {
   background: rgba(240, 184, 96, 0.15);
   border-left: 2px solid #f0b860;
