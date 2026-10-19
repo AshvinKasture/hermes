@@ -1,0 +1,9 @@
+.env
+node_modules
+frontend/node_modules
+frontend/dist
+backend/bin
+backend/obj
+backend/run-template/bin
+backend/run-template/obj
+**/*.user

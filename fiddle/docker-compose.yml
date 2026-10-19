@@ -1,0 +1,20 @@
+services:
+  fiddle:
+    build: .
+    container_name: fiddle
+    restart: unless-stopped
+    ports:
+      - "9121:9121"
+    environment:
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - ALLOWED_EMAIL=${ALLOWED_EMAIL:-ashvin.kasture12345@gmail.com}
+      - PUBLIC_URL=https://hermes.ashtech.dev/fiddle
+    tmpfs:
+      - /tmp/fiddle-runs:size=256m,uid=1501,gid=1501,exec
+    networks:
+      - fiddle-net
+
+networks:
+  fiddle-net:
+    driver: bridge
