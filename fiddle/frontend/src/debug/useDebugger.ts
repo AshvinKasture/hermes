@@ -75,6 +75,36 @@ export function useDebugger(): UseDebuggerResult {
   watchExpressionsRef.current = watchExpressions
   const consoleIdRef = useRef(0)
 
+  /**
+   * netcoredbg has a known evaluator bug (Samsung/netcoredbg#246/#248): bare property access on a
+   * local (`foo.Length`, `foo.HasValue`) fails with "does not exist in the current context", even
+   * though the property genuinely exists - but calling the compiler-generated getter directly
+   * (`foo.get_Length()`) works fine, since method calls go through a different code path. We
+   * retry failed evaluations once with the last `.Identifier` rewritten to `.get_Identifier()`
+   * before giving up, so the common case (string/array .Length, Nullable<T>.HasValue, any
+   * auto-property) works transparently without the user needing to know the workaround.
+   */
+  async function evaluateWithPropertyFallback(
+    client: DapClient,
+    expression: string,
+    frameId: number | undefined,
+    context: string,
+  ): Promise<string> {
+    try {
+      const resp = await client.request('evaluate', { expression, frameId, context })
+      return ((resp.body as Record<string, unknown>)?.result as string) ?? ''
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      const propertyMatch = /\.([A-Za-z_][A-Za-z0-9_]*)$/.exec(expression)
+      if (propertyMatch && message.includes('does not exist in the current context')) {
+        const rewritten = `${expression.slice(0, propertyMatch.index)}.get_${propertyMatch[1]}()`
+        const resp = await client.request('evaluate', { expression: rewritten, frameId, context })
+        return ((resp.body as Record<string, unknown>)?.result as string) ?? ''
+      }
+      throw err
+    }
+  }
+
   const evaluateWatches = useCallback(async (frameId: number | null) => {
     const client = clientRef.current
     const expressions = watchExpressionsRef.current
@@ -85,9 +115,8 @@ export function useDebugger(): UseDebuggerResult {
     const results = await Promise.all(
       expressions.map(async (expression): Promise<WatchResult> => {
         try {
-          const resp = await client.request('evaluate', { expression, frameId: frameId ?? undefined, context: 'watch' })
-          const body = resp.body as Record<string, unknown>
-          return { expression, value: (body?.result as string) ?? '', error: false }
+          const value = await evaluateWithPropertyFallback(client, expression, frameId ?? undefined, 'watch')
+          return { expression, value, error: false }
         } catch (err) {
           return { expression, value: err instanceof Error ? err.message : 'evaluation failed', error: true }
         }
@@ -141,12 +170,23 @@ export function useDebugger(): UseDebuggerResult {
           prev.map((e) => (e.id === id ? { ...e, pending: false, error: false, result: (body?.result as string) ?? '' } : e)),
         )
       })
-      .catch((err: unknown) => {
-        setConsoleHistory((prev) =>
-          prev.map((e) =>
-            e.id === id ? { ...e, pending: false, error: true, result: err instanceof Error ? err.message : 'Evaluation failed' } : e,
-          ),
-        )
+      .catch(async (err: unknown) => {
+        const message = err instanceof Error ? err.message : String(err)
+        const propertyMatch = /\.([A-Za-z_][A-Za-z0-9_]*)$/.exec(trimmed)
+        if (propertyMatch && message.includes('does not exist in the current context')) {
+          const rewritten = `${trimmed.slice(0, propertyMatch.index)}.get_${propertyMatch[1]}()`
+          try {
+            const resp = await client.request('evaluate', { expression: rewritten, frameId: topFrameIdRef.current ?? undefined, context: 'repl' })
+            const body = resp.body as Record<string, unknown>
+            setConsoleHistory((prev) =>
+              prev.map((e) => (e.id === id ? { ...e, pending: false, error: false, result: (body?.result as string) ?? '' } : e)),
+            )
+            return
+          } catch {
+            // fall through to show the original error below
+          }
+        }
+        setConsoleHistory((prev) => prev.map((e) => (e.id === id ? { ...e, pending: false, error: true, result: message } : e)))
       })
   }, [])
 
