@@ -35,6 +35,8 @@ function App() {
   const [elapsedMs, setElapsedMs] = useState<number | null>(null)
   const [me, setMe] = useState<Me | null>(null)
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null)
+  const codeRef = useRef(code)
+  codeRef.current = code
 
   useEffect(() => {
     fetch('/fiddle/api/auth/me')
@@ -52,7 +54,10 @@ function App() {
       const res = await fetch('/fiddle/api/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code }),
+        // Read the latest code via ref, not the closed-over `code` value - the Monaco
+        // keybinding below is only ever bound once at mount, so a stale closure here
+        // previously kept re-submitting whatever code existed when the page first loaded.
+        body: JSON.stringify({ code: codeRef.current }),
       })
       if (res.status === 401) {
         window.location.href = '/fiddle/api/auth/login'
@@ -67,7 +72,7 @@ function App() {
     } finally {
       setRunning(false)
     }
-  }, [code])
+  }, [])
 
   const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor
